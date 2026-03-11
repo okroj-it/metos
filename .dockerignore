@@ -1,0 +1,8 @@
+zig-out/
+zig-pkg/
+.zig-cache/
+.git/
+.claude/
+*.db
+.env
+config.toml

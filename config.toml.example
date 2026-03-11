@@ -1,0 +1,5 @@
+# MetOS bot configuration
+gemini_api_key = "your-gemini-api-key"
+telegram_bot_token = "your-telegram-bot-token"
+owner_id = 123456789
+db_path = "metos.db"

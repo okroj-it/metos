@@ -1,0 +1,15 @@
+zig-out/
+zig-pkg/
+.zig-cache/
+*.db
+.env
+config.toml
+config.server.toml
+server/ui/
+server/frontend/node_modules/
+bot/zig-out/
+bot/zig-pkg/
+bot/.zig-cache/
+server/zig-out/
+server/zig-pkg/
+server/.zig-cache/

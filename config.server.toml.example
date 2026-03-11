@@ -1,0 +1,4 @@
+# MetOS dashboard server config
+db_path = "metos.db"
+port = 3000
+password = "changeme"

@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #12121a;
+  --color-surface-raised: #1a1a2e;
+  --color-surface-overlay: #22223a;
+  --color-border-subtle: #2a2a44;
+  --color-cal: #f59e0b;
+  --color-cal-dim: #78500d;
+  --color-protein: #3b82f6;
+  --color-protein-dim: #1e3a5f;
+  --color-carbs: #22c55e;
+  --color-carbs-dim: #14532d;
+  --color-fat: #eab308;
+  --color-fat-dim: #713f12;
+  --color-fiber: #a78bfa;
+  --color-purine-low: #22c55e;
+  --color-purine-med: #f59e0b;
+  --color-purine-high: #ef4444;
+  --color-water: #38bdf8;
+  --color-injection: #a855f7;
+}
+
+html {
+  background: #0a0a0f;
+  color: #e2e2e8;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+.glass {
+  background: linear-gradient(
+    135deg,
+    rgba(26, 26, 46, 0.8),
+    rgba(18, 18, 26, 0.6)
+  );
+  border: 1px solid rgba(42, 42, 68, 0.6);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+}
+
+.glass-hover {
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.glass-hover:hover {
+  border-color: rgba(80, 80, 120, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(42, 42, 68, 0.5);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.bar-chart-bar {
+  border-radius: 4px 4px 0 0;
+  transition: height 0.4s ease;
+  min-height: 4px;
+}
+
+.gout-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.15),
+    rgba(239, 68, 68, 0.05)
+  );
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+}
+
+.purine-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.injection-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.15),
+    rgba(168, 85, 247, 0.05)
+  );
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 12px;
+}
+
+.injection-btn {
+  background: rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: #c084fc;
+  font-weight: 600;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.injection-btn:hover {
+  background: rgba(168, 85, 247, 0.35);
+  border-color: rgba(168, 85, 247, 0.6);
+}
+
+html.light {
+  background: #f5f5f7;
+  color: #1a1a2e;
+}
+
+.light .glass {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(245, 245, 247, 0.7)
+  );
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.light .glass-hover:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.light .progress-bar {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.light .gout-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.1),
+    rgba(239, 68, 68, 0.03)
+  );
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.light .injection-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.1),
+    rgba(168, 85, 247, 0.03)
+  );
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.light .injection-btn {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #7c3aed;
+}
+
+.light .injection-btn:hover {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: rgba(168, 85, 247, 0.5);
+}

@@ -1,0 +1,26 @@
+services:
+  bot:
+    build: ./bot
+    container_name: metos-bot
+    restart: unless-stopped
+    volumes:
+      - ./config.toml:/data/config.toml:ro
+      - ./metos.db:/data/metos.db
+    networks:
+      - metos_net
+
+  server:
+    build: ./server
+    container_name: metos-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config.server.toml:/data/config.toml:ro
+      - ./metos.db:/data/metos.db:ro
+    networks:
+      - metos_net
+
+networks:
+  metos_net:
+    driver: bridge
