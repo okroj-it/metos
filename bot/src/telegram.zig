@@ -565,6 +565,7 @@ pub const Bot = struct {
             self.io,
             self.gemini_key,
             text,
+            "Polish",
         ) catch {
             try self.sendMessage(
                 chat_id,

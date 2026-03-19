@@ -35,48 +35,46 @@ pub const TranscribeResult = struct {
 };
 
 const system_prompt =
-    \\Jesteś zaawansowanym silnikiem dietetycznym i biochemicznym.
-    \\Twoim jedynym zadaniem jest analiza opisu posiłku podanego
-    \\przez użytkownika i zwrócenie WYŁĄCZNIE poprawnego obiektu JSON.
-    \\Nie dodawaj żadnego tekstu, wstępów, podsumowań ani formatowania
-    \\Markdown (bez ```json). Odpowiedz po polsku w polu meal_name.
+    \\You are an advanced dietary and biochemical analysis engine.
+    \\Your only task is to analyze a meal description from the user
+    \\and return ONLY a valid JSON object. Do not add any text,
+    \\preamble, summaries, or Markdown formatting (no ```json).
     \\
-    \\ZASADY ANALIZY I OBLICZEŃ:
-    \\1. Szacowanie porcji: Jeśli użytkownik nie podał dokładnej wagi,
-    \\   zakładaj standardowe duże porcje (np. "twaróg" = 250g,
-    \\   "pierś z kurczaka" = 200g, "bułka/kromka" = jeden kawałek).
-    \\2. Makroskładniki: Oszacuj kalorie (kcal), białko (g),
-    \\   węglowodany (g), tłuszcze (g) i błonnik (g).
-    \\3. Gęstość białkowa: Oblicz "protein_density".
-    \\   Wzór: (białko w gramach * 4) / kalorie ogółem.
-    \\   Zwróć jako ułamek z dwoma miejscami (np. 0.45).
-    \\4. Analiza puryn (Krytyczne bezpieczeństwo):
-    \\   - "low": posiłek na bazie nabiału (twaróg, WPI),
-    \\     jaj, warzyw (brokuły, kalafior) i pieczywa.
-    \\   - "medium": posiłek zawierający chude mięso (drób) lub
-    \\     chudą rybę (dorsz, morszczuk) pieczoną lub smażoną.
-    \\   - "high": posiłek zawierający buliony mięsne (np. wywar
-    \\     z gotowania mięsa, bulion kostny), wołowinę, wieprzowinę,
-    \\     podroby, alkohol lub dużo cukru/fruktozy.
-    \\5. Flaga bezpieczeństwa: "gout_warning" musi być true ZAWSZE
-    \\   gdy posiłek zawiera składnik o "high" purine level.
-    \\6. Purine mg: Oszacuj całkowitą zawartość puryn w mg.
-    \\7. Pewność puryn: "purine_confidence" — jak pewna jest
-    \\   Twoja estymacja puryn:
-    \\   - "high": typowe produkty z dobrze znaną zawartością puryn
-    \\   - "medium": wartości przybliżone, mogą się różnić
-    \\   - "low": produkty o zmiennej zawartości puryn zależnej od
-    \\     przygotowania, gatunku lub źródła
-    \\8. Notatki o purynach: "purine_notes" — krótka uwaga po polsku
-    \\   gdy pewność jest niska lub średnia (np. "sardynki — duża
-    \\   zmienność w zależności od przygotowania"). Pusty string
-    \\   gdy pewność jest wysoka.
-    \\9. Water ml: Sugerowane nawodnienie. Baza 250ml,
-    \\   +500ml dla high puryn, +250ml dla medium.
+    \\ANALYSIS RULES:
+    \\1. Portion estimation: If the user does not specify exact weight,
+    \\   assume standard large portions (e.g. "cottage cheese" = 250g,
+    \\   "chicken breast" = 200g, "roll/slice" = one piece).
+    \\2. Macronutrients: Estimate calories (kcal), protein (g),
+    \\   carbohydrates (g), fat (g), and fiber (g).
+    \\3. Protein density: Calculate "protein_density".
+    \\   Formula: (protein_g * 4) / calories. Return as a decimal
+    \\   rounded to two places (e.g. 0.45).
+    \\4. Purine analysis (critical for gout safety):
+    \\   - "low": meals based on dairy (cottage cheese, WPI), eggs,
+    \\     vegetables (broccoli, cauliflower), and bread.
+    \\   - "medium": meals containing lean meat (poultry) or lean
+    \\     fish (cod, hake) baked or fried.
+    \\   - "high": meals containing meat broths (e.g. bone broth,
+    \\     cooking stock), beef, pork, organ meats, alcohol,
+    \\     or high sugar/fructose.
+    \\5. Safety flag: "gout_warning" must be true whenever any
+    \\   ingredient has "high" purine level.
+    \\6. Purine mg: Estimate total purine content in mg.
+    \\7. Purine confidence: "purine_confidence" — how confident
+    \\   is your purine estimate:
+    \\   - "high": common foods with well-known purine content
+    \\   - "medium": approximate values, may vary
+    \\   - "low": foods with variable purine content depending on
+    \\     preparation, species, or source
+    \\8. Purine notes: "purine_notes" — a short note when confidence
+    \\   is low or medium (e.g. "sardines — high variability depending
+    \\   on preparation"). Empty string when confidence is high.
+    \\9. Water ml: Suggested hydration. Base 250ml, +500ml for high
+    \\   purines, +250ml for medium.
     \\
-    \\WYMAGANA STRUKTURA JSON:
+    \\REQUIRED JSON STRUCTURE:
     \\{
-    \\  "meal_name": "Zwięzła, znormalizowana nazwa posiłku po polsku",
+    \\  "meal_name": "Concise, normalized meal name",
     \\  "calories": 0,
     \\  "protein_g": 0,
     \\  "carbs_g": 0,
@@ -97,8 +95,9 @@ pub fn analyze(
     io: Io,
     api_key: []const u8,
     user_text: []const u8,
+    locale: []const u8,
 ) !AnalysisResult {
-    const body = try buildRequestBody(allocator, user_text);
+    const body = try buildRequestBody(allocator, user_text, locale);
     defer allocator.free(body);
 
     const response_body = try callGemini(
@@ -357,10 +356,18 @@ fn callGemini(
 fn buildRequestBody(
     allocator: std.mem.Allocator,
     user_text: []const u8,
+    locale: []const u8,
 ) ![]const u8 {
+    var prompt_buf: [4096]u8 = undefined;
+    const full_prompt = std.fmt.bufPrint(
+        &prompt_buf,
+        "{s}\n\nOutput the \"meal_name\" and \"purine_notes\""
+            ++ " fields in {s}. All other fields remain in English.",
+        .{ system_prompt, locale },
+    ) catch return error.PromptTooLong;
     return std.json.Stringify.valueAlloc(allocator, .{
         .system_instruction = .{
-            .parts = .{.{ .text = system_prompt }},
+            .parts = .{.{ .text = full_prompt }},
         },
         .contents = .{.{
             .parts = .{.{ .text = user_text }},
