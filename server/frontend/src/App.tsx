@@ -31,7 +31,9 @@ import {
   TrendingUp,
   LayoutDashboard,
   Activity,
+  Languages,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { isTokenValid, clearToken } from "./lib/auth";
 import { LoginPage } from "./components/login-page";
 import type {
@@ -72,7 +74,10 @@ function displayDate(d: Date): string {
   });
 }
 
-function purineBadge(level: string): {
+function purineBadge(
+  level: string,
+  t: (key: string) => string,
+): {
   color: string;
   bg: string;
   label: string;
@@ -82,32 +87,35 @@ function purineBadge(level: string): {
       return {
         color: "text-purine-high",
         bg: "bg-purine-high/20",
-        label: "wysoki",
+        label: t("purine.high"),
       };
     case "medium":
       return {
         color: "text-purine-med",
         bg: "bg-purine-med/20",
-        label: "średni",
+        label: t("purine.medium"),
       };
     default:
       return {
         color: "text-purine-low",
         bg: "bg-purine-low/20",
-        label: "niski",
+        label: t("purine.low"),
       };
   }
 }
 
-function confidenceBadge(confidence: string): {
+function confidenceBadge(
+  confidence: string,
+  t: (key: string) => string,
+): {
   color: string;
   label: string;
 } {
   switch (confidence?.toLowerCase()) {
     case "low":
-      return { color: "text-purine-high", label: "niska pewność" };
+      return { color: "text-purine-high", label: t("confidence.low") };
     case "medium":
-      return { color: "text-purine-med", label: "średnia pewność" };
+      return { color: "text-purine-med", label: t("confidence.medium") };
     default:
       return { color: "text-purine-low", label: "" };
   }
@@ -176,8 +184,9 @@ function GoalProgress({
 }
 
 function MealRow({ meal }: { meal: Meal }) {
-  const badge = purineBadge(meal.purine_level);
-  const conf = confidenceBadge(meal.purine_confidence);
+  const { t } = useTranslation();
+  const badge = purineBadge(meal.purine_level, t);
+  const conf = confidenceBadge(meal.purine_confidence, t);
   return (
     <div className="glass glass-hover p-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1 min-w-0">
@@ -194,14 +203,14 @@ function MealRow({ meal }: { meal: Meal }) {
             </span>
           )}
           {meal.gout_warning === 1 && (
-            <span className="text-purine-high text-sm" title="Ryzyko dny">
+            <span className="text-purine-high text-sm" title={t("purine.goutRisk")}>
               {"\u{1F480}"}
             </span>
           )}
         </div>
         {meal.purine_mg > 0 && (
           <span className="text-xs opacity-40">
-            {meal.purine_mg} mg puryn
+            {meal.purine_mg} {t("purine.mgLabel")}
           </span>
         )}
         {meal.purine_notes && (
@@ -229,11 +238,12 @@ function MealRow({ meal }: { meal: Meal }) {
 }
 
 function WeightChart({ entries }: { entries: WeighIn[] }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<"bar" | "line">("line");
 
   if (entries.length === 0) {
     return (
-      <p className="text-sm opacity-40">Brak danych ważenia.</p>
+      <p className="text-sm opacity-40">{t("weight.empty")}</p>
     );
   }
 
@@ -265,14 +275,14 @@ function WeightChart({ entries }: { entries: WeighIn[] }) {
           <button
             onClick={() => setMode("bar")}
             className={`p-1.5 rounded-md transition-colors ${mode === "bar" ? "bg-protein/20 text-protein" : "opacity-40 hover:opacity-70"}`}
-            title="Słupki"
+            title={t("weight.barMode")}
           >
             <BarChart3 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setMode("line")}
             className={`p-1.5 rounded-md transition-colors ${mode === "line" ? "bg-protein/20 text-protein" : "opacity-40 hover:opacity-70"}`}
-            title="Linia"
+            title={t("weight.lineMode")}
           >
             <TrendingUp className="w-3.5 h-3.5" />
           </button>
@@ -302,7 +312,7 @@ function WeightChart({ entries }: { entries: WeighIn[] }) {
             />
             <Tooltip
               contentStyle={tooltipStyle}
-              formatter={(v) => [`${Number(v).toFixed(1)} kg`, "Waga"]}
+              formatter={(v) => [`${Number(v).toFixed(1)} kg`, t("weight.tooltip")]}
             />
             <Bar
               dataKey="kg"
@@ -334,7 +344,7 @@ function WeightChart({ entries }: { entries: WeighIn[] }) {
             />
             <Tooltip
               contentStyle={tooltipStyle}
-              formatter={(v) => [`${Number(v).toFixed(1)} kg`, "Waga"]}
+              formatter={(v) => [`${Number(v).toFixed(1)} kg`, t("weight.tooltip")]}
             />
             <Line
               type="monotone"
@@ -358,6 +368,7 @@ function WaterDisplay({
   totalMl: number;
   purineBonusMl: number;
 }) {
+  const { t } = useTranslation();
   const glasses = totalMl / 250;
   return (
     <div>
@@ -367,19 +378,22 @@ function WaterDisplay({
           {totalMl}
         </span>
         <span className="text-sm opacity-50">
-          ml ({glasses.toFixed(1)} szklanek)
+          ml ({glasses.toFixed(1)} {t("hydration.glasses")})
         </span>
       </div>
       {purineBonusMl > 0 && (
         <p className="text-xs opacity-40 mt-1">
-          +{purineBonusMl} ml za wysokie puryny
+          {t("hydration.purineBonus", { ml: purineBonusMl })}
         </p>
       )}
     </div>
   );
 }
 
-function getSuppressionPhase(suppression: number): {
+function getSuppressionPhase(
+  suppression: number,
+  t: (key: string) => string,
+): {
   name: string;
   description: string;
   color: string;
@@ -387,44 +401,41 @@ function getSuppressionPhase(suppression: number): {
 } {
   if (suppression >= 0.8) {
     return {
-      name: "Wchłanianie",
-      description: "Silne tłumienie — pilnuj białka!",
+      name: t("phase.absorption"),
+      description: t("phase.absorptionDesc"),
       color: "text-yellow-400",
       bgColor: "bg-yellow-400",
     };
   }
   if (suppression >= 0.5) {
     return {
-      name: "Szczyt tłumienia",
-      description: "Szczytowe tłumienie apetytu",
+      name: t("phase.peakSuppression"),
+      description: t("phase.peakSuppressionDesc"),
       color: "text-green-400",
       bgColor: "bg-green-400",
     };
   }
   if (suppression >= 0.3) {
     return {
-      name: "Apetyt wraca",
-      description: "Uważaj na impulsy jedzeniowe",
+      name: t("phase.appetiteReturning"),
+      description: t("phase.appetiteReturningDesc"),
       color: "text-orange-400",
       bgColor: "bg-orange-400",
     };
   }
   return {
-    name: "Czas na zastrzyk!",
-    description: "Tłumienie wygasło",
+    name: t("phase.timeToInject"),
+    description: t("phase.timeToInjectDesc"),
     color: "text-red-400",
     bgColor: "bg-red-400",
   };
 }
 
-const SITE_LABELS: Record<string, string> = {
-  brzuch_L: "Brzuch L",
-  brzuch_P: "Brzuch P",
-  udo_L: "Udo L",
-  udo_P: "Udo P",
-  ramie_L: "Ramię L",
-  ramie_P: "Ramię P",
-};
+function siteLabel(site: string, t: (key: string) => string): string {
+  const key = `site.${site}`;
+  const result = t(key);
+  return result === key ? site : result;
+}
 
 function InjectionSection({
   data,
@@ -433,6 +444,7 @@ function InjectionSection({
   data: InjectionData | null;
   onLog: () => void;
 }) {
+  const { t } = useTranslation();
   const canLog = !data || data.days_since >= 7;
 
   if (!data) {
@@ -446,21 +458,21 @@ function InjectionSection({
               onClick={onLog}
               className="injection-btn text-sm px-3 py-1.5 rounded-lg"
             >
-              Zapisz zastrzyk
+              {t("injection.logBtn")}
             </button>
           </span>
         </div>
         <p className="text-xs opacity-50 mt-2">
-          Brak danych o zastrzyku.
+          {t("injection.noData")}
         </p>
       </div>
     );
   }
 
-  const phase = getSuppressionPhase(data.suppression);
+  const phase = getSuppressionPhase(data.suppression, t);
   const suppressionPct = Math.round(data.suppression * 100);
   const progressPct = Math.min((data.days_since / 7) * 100, 100);
-  const siteLabel = data.site ? (SITE_LABELS[data.site] ?? data.site) : null;
+  const siteName = data.site ? siteLabel(data.site, t) : null;
 
   return (
     <div className="injection-banner p-5 mb-5">
@@ -469,14 +481,14 @@ function InjectionSection({
         <span className="font-semibold text-sm">Mounjaro</span>
         <span className="ml-auto flex items-center gap-3">
           <span className="text-sm opacity-60">
-            dzień {data.days_since}
+            {t("injection.day", { count: data.days_since })}
           </span>
           {canLog && (
             <button
               onClick={onLog}
               className="injection-btn text-sm px-3 py-1.5 rounded-lg"
             >
-              Zapisz zastrzyk
+              {t("injection.logBtn")}
             </button>
           )}
         </span>
@@ -486,7 +498,7 @@ function InjectionSection({
           {phase.name}
         </span>
         <span className="text-sm opacity-50">
-          — tłumienie {suppressionPct}%
+          — {t("injection.suppression", { pct: suppressionPct })}
         </span>
       </div>
       <p className="text-xs opacity-60 mb-3">{phase.description}</p>
@@ -498,13 +510,13 @@ function InjectionSection({
       </div>
       <div className="flex justify-between text-[10px] opacity-30 mb-3">
         <span>0</span>
-        <span>7 dni</span>
+        <span>{t("injection.days7")}</span>
       </div>
       <div className="flex gap-4 text-xs opacity-50">
         <span>{data.dose_mg} mg</span>
-        {siteLabel && <span>{siteLabel}</span>}
+        {siteName && <span>{siteName}</span>}
         <span>
-          {Math.round(data.hours_since)}h temu
+          {t("injection.agoHours", { hours: Math.round(data.hours_since) })}
         </span>
       </div>
     </div>
@@ -532,6 +544,7 @@ const chartTooltip = {
 };
 
 function AnalyticsTab() {
+  const { t } = useTranslation();
   const [days, setDays] = useState(7);
   const [data, setData] = useState<AnalyticsDay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -572,13 +585,13 @@ function AnalyticsTab() {
         <div className="text-center py-12 opacity-40">Loading...</div>
       ) : data.length === 0 ? (
         <div className="glass p-8 text-center opacity-40 text-sm">
-          Brak danych w wybranym zakresie.
+          {t("analytics.empty")}
         </div>
       ) : (
         <div className="flex flex-col gap-5">
           <section className="glass p-5">
             <h2 className="text-sm font-semibold opacity-60 mb-3">
-              Kalorie
+              {t("analytics.calories")}
             </h2>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={chartData}>
@@ -593,7 +606,7 @@ function AnalyticsTab() {
 
           <section className="glass p-5">
             <h2 className="text-sm font-semibold opacity-60 mb-3">
-              Makroskładniki
+              {t("analytics.macros")}
             </h2>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={chartData}>
@@ -620,24 +633,24 @@ function AnalyticsTab() {
                 <YAxis tick={chartAxis} tickLine={false} axisLine={false} width={40} />
                 <Tooltip contentStyle={chartTooltip} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px", opacity: 0.7 }} />
-                <Area type="monotone" dataKey="protein_g" name="Białko" stroke="var(--color-protein)" fill="url(#gProt)" strokeWidth={2} />
-                <Area type="monotone" dataKey="carbs_g" name="Węgl." stroke="var(--color-carbs)" fill="url(#gCarbs)" strokeWidth={2} />
-                <Area type="monotone" dataKey="fat_g" name="Tłuszcz" stroke="var(--color-fat)" fill="url(#gFat)" strokeWidth={2} />
-                <Area type="monotone" dataKey="fiber_g" name="Błonnik" stroke="var(--color-fiber)" fill="url(#gFiber)" strokeWidth={2} />
+                <Area type="monotone" dataKey="protein_g" name={t("analytics.protein")} stroke="var(--color-protein)" fill="url(#gProt)" strokeWidth={2} />
+                <Area type="monotone" dataKey="carbs_g" name={t("analytics.carbs")} stroke="var(--color-carbs)" fill="url(#gCarbs)" strokeWidth={2} />
+                <Area type="monotone" dataKey="fat_g" name={t("analytics.fat")} stroke="var(--color-fat)" fill="url(#gFat)" strokeWidth={2} />
+                <Area type="monotone" dataKey="fiber_g" name={t("analytics.fiber")} stroke="var(--color-fiber)" fill="url(#gFiber)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </section>
 
           <section className="glass p-5">
             <h2 className="text-sm font-semibold opacity-60 mb-3">
-              Nawodnienie
+              {t("analytics.hydration")}
             </h2>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={chartData}>
                 <CartesianGrid {...chartGrid} />
                 <XAxis dataKey="date" tick={chartAxis} tickLine={false} axisLine={false} />
                 <YAxis tick={chartAxis} tickLine={false} axisLine={false} width={40} />
-                <Tooltip contentStyle={chartTooltip} formatter={(v) => [`${v} ml`, "Woda"]} />
+                <Tooltip contentStyle={chartTooltip} formatter={(v) => [`${v} ml`, t("analytics.water")]} />
                 <Bar dataKey="water_ml" name="ml" fill="var(--color-water)" radius={[3, 3, 0, 0]} opacity={0.75} />
               </BarChart>
             </ResponsiveContainer>
@@ -649,6 +662,7 @@ function AnalyticsTab() {
 }
 
 function MounjaroTab() {
+  const { t } = useTranslation();
   const [data, setData] = useState<KineticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -666,7 +680,7 @@ function MounjaroTab() {
   if (!data || data.curve.length === 0) {
     return (
       <div className="glass p-8 text-center opacity-40 text-sm">
-        Brak danych farmakokinetycznych. Zaloguj pierwszy zastrzyk.
+        {t("mounjaro.empty")}
       </div>
     );
   }
@@ -680,14 +694,14 @@ function MounjaroTab() {
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-2 gap-3">
         <div className="glass p-4">
-          <div className="text-xs opacity-50 mb-1">Stężenie w osoczu</div>
+          <div className="text-xs opacity-50 mb-1">{t("mounjaro.plasmaConc")}</div>
           <div className="text-2xl font-bold text-injection">
             {currentPlasma.toFixed(2)}
             <span className="text-sm opacity-50 ml-1">mg-eq</span>
           </div>
         </div>
         <div className="glass p-4">
-          <div className="text-xs opacity-50 mb-1">Tłumienie apetytu</div>
+          <div className="text-xs opacity-50 mb-1">{t("mounjaro.appetiteSuppr")}</div>
           <div className="text-2xl font-bold text-green-400">
             {Math.round(currentSuppression * 100)}
             <span className="text-sm opacity-50 ml-1">%</span>
@@ -697,7 +711,7 @@ function MounjaroTab() {
 
       <section className="glass p-5">
         <h2 className="text-sm font-semibold opacity-60 mb-3">
-          Krzywa stężenia w osoczu (prognoza 7 dni)
+          {t("mounjaro.plasmaCurve")}
         </h2>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data.curve}>
@@ -719,8 +733,8 @@ function MounjaroTab() {
             <YAxis tick={chartAxis} tickLine={false} axisLine={false} width={36} />
             <Tooltip
               contentStyle={chartTooltip}
-              labelFormatter={(h) => `+${h}h (dzień ${(Number(h) / 24).toFixed(1)})`}
-              formatter={(v) => [`${Number(v).toFixed(3)} mg-eq`, "Stężenie"]}
+              labelFormatter={(h) => `+${h}h (d${(Number(h) / 24).toFixed(1)})`}
+              formatter={(v) => [`${Number(v).toFixed(3)} mg-eq`, t("mounjaro.concentration")]}
             />
             <Area
               type="monotone"
@@ -735,7 +749,7 @@ function MounjaroTab() {
 
       <section className="glass p-5">
         <h2 className="text-sm font-semibold opacity-60 mb-3">
-          Tłumienie apetytu (prognoza 7 dni)
+          {t("mounjaro.supprCurve")}
         </h2>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={data.curve}>
@@ -764,8 +778,8 @@ function MounjaroTab() {
             />
             <Tooltip
               contentStyle={chartTooltip}
-              labelFormatter={(h) => `+${h}h (dzień ${(Number(h) / 24).toFixed(1)})`}
-              formatter={(v) => [`${(Number(v) * 100).toFixed(1)}%`, "Tłumienie"]}
+              labelFormatter={(h) => `+${h}h (d${(Number(h) / 24).toFixed(1)})`}
+              formatter={(v) => [`${(Number(v) * 100).toFixed(1)}%`, t("mounjaro.suppression")]}
             />
             <Area
               type="monotone"
@@ -780,10 +794,10 @@ function MounjaroTab() {
 
       <section className="glass p-5">
         <h2 className="text-sm font-semibold opacity-60 mb-3">
-          Historia zastrzyków
+          {t("mounjaro.history")}
         </h2>
         {history.length === 0 ? (
-          <p className="text-sm opacity-40">Brak historii.</p>
+          <p className="text-sm opacity-40">{t("mounjaro.historyEmpty")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             {history.map((inj, i) => (
@@ -798,7 +812,7 @@ function MounjaroTab() {
                   </span>
                   {inj.site && (
                     <span className="opacity-50">
-                      {SITE_LABELS[inj.site] ?? inj.site}
+                      {siteLabel(inj.site, t)}
                     </span>
                   )}
                 </div>
@@ -827,10 +841,10 @@ function useDarkMode() {
 
 type Tab = "dashboard" | "analytics" | "mounjaro";
 
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
-  { id: "analytics", label: "Analityka", icon: <Activity className="w-4 h-4" /> },
-  { id: "mounjaro", label: "Mounjaro", icon: <Syringe className="w-4 h-4" /> },
+const TAB_IDS: { id: Tab; icon: React.ReactNode }[] = [
+  { id: "dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
+  { id: "analytics", icon: <Activity className="w-4 h-4" /> },
+  { id: "mounjaro", icon: <Syringe className="w-4 h-4" /> },
 ];
 
 function TabBar({
@@ -840,9 +854,15 @@ function TabBar({
   active: Tab;
   onChange: (t: Tab) => void;
 }) {
+  const { t } = useTranslation();
+  const tabLabels: Record<Tab, string> = {
+    dashboard: t("tab.dashboard"),
+    analytics: t("tab.analytics"),
+    mounjaro: t("tab.mounjaro"),
+  };
   return (
     <nav className="flex gap-1 bg-surface-raised rounded-xl p-1 mb-5">
-      {TABS.map((tab) => (
+      {TAB_IDS.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
@@ -853,7 +873,7 @@ function TabBar({
           }`}
         >
           {tab.icon}
-          <span className="hidden sm:inline">{tab.label}</span>
+          <span className="hidden sm:inline">{tabLabels[tab.id]}</span>
         </button>
       ))}
     </nav>
@@ -861,6 +881,7 @@ function TabBar({
 }
 
 export function App() {
+  const { t, i18n } = useTranslation();
   const [dark, toggleDark] = useDarkMode();
   const [authed, setAuthed] = useState(() => isTokenValid());
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -945,10 +966,18 @@ export function App() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => i18n.changeLanguage(i18n.language === "pl" ? "en" : "pl")}
+            className="p-2 rounded-lg hover:bg-surface-raised transition-colors opacity-40 hover:opacity-100 text-xs font-semibold"
+            aria-label="Switch language"
+            title="Switch language"
+          >
+            <Languages className="w-4 h-4" />
+          </button>
+          <button
             onClick={toggleDark}
             className="p-2 rounded-lg hover:bg-surface-raised transition-colors opacity-40 hover:opacity-100"
-            aria-label="Przełącz motyw"
-            title="Przełącz motyw"
+            aria-label={t("header.toggleTheme")}
+            title={t("header.toggleTheme")}
           >
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
@@ -958,8 +987,8 @@ export function App() {
               setAuthed(false);
             }}
             className="p-2 rounded-lg hover:bg-surface-raised transition-colors opacity-40 hover:opacity-100"
-            aria-label="Wyloguj"
-            title="Wyloguj"
+            aria-label={t("header.logout")}
+            title={t("header.logout")}
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -1013,11 +1042,10 @@ export function App() {
               <AlertTriangle className="w-5 h-5 text-purine-high flex-shrink-0" />
               <div>
                 <span className="font-semibold text-purine-high">
-                  Ostrzeżenie dnowe
+                  {t("gout.warning")}
                 </span>
                 <p className="text-sm opacity-70 mt-0.5">
-                  Jeden lub więcej posiłków zawiera składniki
-                  o wysokiej zawartości puryn.
+                  {t("gout.description")}
                 </p>
               </div>
             </div>
@@ -1034,35 +1062,35 @@ export function App() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
             <StatCard
               icon={<Flame className="w-4 h-4" />}
-              label="Kalorie"
+              label={t("stat.calories")}
               value={stats?.total_calories ?? 0}
               unit="kcal"
               color="text-cal"
             />
             <StatCard
               icon={<Beef className="w-4 h-4" />}
-              label="Białko"
+              label={t("stat.protein")}
               value={stats?.total_protein_g ?? 0}
               unit="g"
               color="text-protein"
             />
             <StatCard
               icon={<Wheat className="w-4 h-4" />}
-              label="Węgl."
+              label={t("stat.carbs")}
               value={stats?.total_carbs_g ?? 0}
               unit="g"
               color="text-carbs"
             />
             <StatCard
               icon={<Flame className="w-4 h-4" />}
-              label="Tłuszcz"
+              label={t("stat.fat")}
               value={stats?.total_fat_g ?? 0}
               unit="g"
               color="text-fat"
             />
             <StatCard
               icon={<Wheat className="w-4 h-4" />}
-              label="Błonnik"
+              label={t("stat.fiber")}
               value={stats?.total_fiber_g ?? 0}
               unit="g"
               color="text-fiber"
@@ -1072,17 +1100,17 @@ export function App() {
           {goal && (
             <div className="glass p-5 mb-5">
               <h2 className="text-sm font-semibold opacity-60 mb-3">
-                Cele dzienne
+                {t("goal.dailyGoals")}
               </h2>
               <GoalProgress
-                label="Kalorie"
+                label={t("goal.calories")}
                 current={stats?.total_calories ?? 0}
                 target={goal.target_calories}
                 color="text-cal"
                 bgColor="bg-cal"
               />
               <GoalProgress
-                label="Białko"
+                label={t("goal.protein")}
                 current={stats?.total_protein_g ?? 0}
                 target={goal.target_protein_g}
                 color="text-protein"
@@ -1090,7 +1118,7 @@ export function App() {
               />
               {goal.target_water_ml != null && (
                 <GoalProgress
-                  label="Woda"
+                  label={t("goal.water")}
                   current={water?.total_ml ?? 0}
                   target={Math.min(
                     goal.target_water_ml +
@@ -1106,11 +1134,11 @@ export function App() {
 
           <section className="mb-5">
             <h2 className="text-sm font-semibold opacity-60 mb-3">
-              Posiłki ({meals.length})
+              {t("meals.title")} ({meals.length})
             </h2>
             {meals.length === 0 ? (
               <div className="glass p-6 text-center opacity-40 text-sm">
-                Brak posiłków na ten dzień.
+                {t("meals.empty")}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -1123,7 +1151,7 @@ export function App() {
 
           <section className="glass p-5 mb-5">
             <h2 className="text-sm font-semibold opacity-60 mb-3">
-              Nawodnienie
+              {t("hydration.title")}
             </h2>
             <WaterDisplay
               totalMl={water?.total_ml ?? 0}
@@ -1135,7 +1163,7 @@ export function App() {
             <div className="flex items-center gap-2 mb-3">
               <Scale className="w-4 h-4 opacity-60" />
               <h2 className="text-sm font-semibold opacity-60">
-                Trend wagi
+                {t("weight.title")}
               </h2>
             </div>
             <WeightChart entries={weight} />

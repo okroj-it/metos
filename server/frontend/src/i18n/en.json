@@ -1,0 +1,91 @@
+{
+  "tab.dashboard": "Dashboard",
+  "tab.analytics": "Analytics",
+  "tab.mounjaro": "Mounjaro",
+
+  "stat.calories": "Calories",
+  "stat.protein": "Protein",
+  "stat.carbs": "Carbs",
+  "stat.fat": "Fat",
+  "stat.fiber": "Fiber",
+
+  "purine.high": "high",
+  "purine.medium": "medium",
+  "purine.low": "low",
+  "purine.mgLabel": "mg purines",
+  "purine.goutRisk": "Gout risk",
+
+  "confidence.low": "low confidence",
+  "confidence.medium": "medium confidence",
+
+  "phase.absorption": "Absorption",
+  "phase.absorptionDesc": "Strong suppression \u2014 watch your protein!",
+  "phase.peakSuppression": "Peak suppression",
+  "phase.peakSuppressionDesc": "Peak appetite suppression",
+  "phase.appetiteReturning": "Appetite returning",
+  "phase.appetiteReturningDesc": "Watch for food impulses",
+  "phase.timeToInject": "Time to inject!",
+  "phase.timeToInjectDesc": "Suppression has worn off",
+
+  "site.brzuch_L": "Abdomen L",
+  "site.brzuch_P": "Abdomen R",
+  "site.udo_L": "Thigh L",
+  "site.udo_P": "Thigh R",
+  "site.ramie_L": "Arm L",
+  "site.ramie_P": "Arm R",
+
+  "login.password": "Password",
+  "login.submit": "Log in",
+  "login.loading": "Logging in...",
+
+  "header.toggleTheme": "Toggle theme",
+  "header.logout": "Log out",
+
+  "gout.warning": "Gout warning",
+  "gout.description": "One or more meals contain ingredients with high purine content.",
+
+  "injection.logBtn": "Log injection",
+  "injection.noData": "No injection data.",
+  "injection.day": "day {{count}}",
+  "injection.suppression": "suppression {{pct}}%",
+  "injection.agoHours": "{{hours}}h ago",
+  "injection.days7": "7 days",
+
+  "goal.dailyGoals": "Daily goals",
+  "goal.calories": "Calories",
+  "goal.protein": "Protein",
+  "goal.water": "Water",
+
+  "meals.title": "Meals",
+  "meals.empty": "No meals for this day.",
+
+  "hydration.title": "Hydration",
+  "hydration.glasses": "glasses",
+  "hydration.purineBonus": "+{{ml}} ml for high purines",
+
+  "weight.title": "Weight trend",
+  "weight.empty": "No weigh-in data.",
+  "weight.tooltip": "Weight",
+  "weight.barMode": "Bar chart",
+  "weight.lineMode": "Line chart",
+
+  "analytics.calories": "Calories",
+  "analytics.macros": "Macronutrients",
+  "analytics.hydration": "Hydration",
+  "analytics.empty": "No data in selected range.",
+  "analytics.water": "Water",
+  "analytics.protein": "Protein",
+  "analytics.carbs": "Carbs",
+  "analytics.fat": "Fat",
+  "analytics.fiber": "Fiber",
+
+  "mounjaro.plasmaConc": "Plasma concentration",
+  "mounjaro.appetiteSuppr": "Appetite suppression",
+  "mounjaro.plasmaCurve": "Plasma concentration curve (7-day forecast)",
+  "mounjaro.supprCurve": "Appetite suppression (7-day forecast)",
+  "mounjaro.history": "Injection history",
+  "mounjaro.historyEmpty": "No history.",
+  "mounjaro.empty": "No pharmacokinetic data. Log your first injection.",
+  "mounjaro.concentration": "Concentration",
+  "mounjaro.suppression": "Suppression"
+}

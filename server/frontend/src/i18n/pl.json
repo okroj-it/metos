@@ -1,0 +1,91 @@
+{
+  "tab.dashboard": "Dashboard",
+  "tab.analytics": "Analityka",
+  "tab.mounjaro": "Mounjaro",
+
+  "stat.calories": "Kalorie",
+  "stat.protein": "Bia\u0142ko",
+  "stat.carbs": "W\u0119gl.",
+  "stat.fat": "T\u0142uszcz",
+  "stat.fiber": "B\u0142onnik",
+
+  "purine.high": "wysoki",
+  "purine.medium": "\u015bredni",
+  "purine.low": "niski",
+  "purine.mgLabel": "mg puryn",
+  "purine.goutRisk": "Ryzyko dny",
+
+  "confidence.low": "niska pewno\u015b\u0107",
+  "confidence.medium": "\u015brednia pewno\u015b\u0107",
+
+  "phase.absorption": "Wch\u0142anianie",
+  "phase.absorptionDesc": "Silne t\u0142umienie \u2014 pilnuj bia\u0142ka!",
+  "phase.peakSuppression": "Szczyt t\u0142umienia",
+  "phase.peakSuppressionDesc": "Szczytowe t\u0142umienie apetytu",
+  "phase.appetiteReturning": "Apetyt wraca",
+  "phase.appetiteReturningDesc": "Uwa\u017caj na impulsy jedzeniowe",
+  "phase.timeToInject": "Czas na zastrzyk!",
+  "phase.timeToInjectDesc": "T\u0142umienie wygas\u0142o",
+
+  "site.brzuch_L": "Brzuch L",
+  "site.brzuch_P": "Brzuch P",
+  "site.udo_L": "Udo L",
+  "site.udo_P": "Udo P",
+  "site.ramie_L": "Rami\u0119 L",
+  "site.ramie_P": "Rami\u0119 P",
+
+  "login.password": "Has\u0142o",
+  "login.submit": "Zaloguj",
+  "login.loading": "Logowanie...",
+
+  "header.toggleTheme": "Prze\u0142\u0105cz motyw",
+  "header.logout": "Wyloguj",
+
+  "gout.warning": "Ostrze\u017cenie dnowe",
+  "gout.description": "Jeden lub wi\u0119cej posi\u0142k\u00f3w zawiera sk\u0142adniki o wysokiej zawarto\u015bci puryn.",
+
+  "injection.logBtn": "Zapisz zastrzyk",
+  "injection.noData": "Brak danych o zastrzyku.",
+  "injection.day": "dzie\u0144 {{count}}",
+  "injection.suppression": "t\u0142umienie {{pct}}%",
+  "injection.agoHours": "{{hours}}h temu",
+  "injection.days7": "7 dni",
+
+  "goal.dailyGoals": "Cele dzienne",
+  "goal.calories": "Kalorie",
+  "goal.protein": "Bia\u0142ko",
+  "goal.water": "Woda",
+
+  "meals.title": "Posi\u0142ki",
+  "meals.empty": "Brak posi\u0142k\u00f3w na ten dzie\u0144.",
+
+  "hydration.title": "Nawodnienie",
+  "hydration.glasses": "szklanek",
+  "hydration.purineBonus": "+{{ml}} ml za wysokie puryny",
+
+  "weight.title": "Trend wagi",
+  "weight.empty": "Brak danych wa\u017cenia.",
+  "weight.tooltip": "Waga",
+  "weight.barMode": "S\u0142upki",
+  "weight.lineMode": "Linia",
+
+  "analytics.calories": "Kalorie",
+  "analytics.macros": "Makrosk\u0142adniki",
+  "analytics.hydration": "Nawodnienie",
+  "analytics.empty": "Brak danych w wybranym zakresie.",
+  "analytics.water": "Woda",
+  "analytics.protein": "Bia\u0142ko",
+  "analytics.carbs": "W\u0119gl.",
+  "analytics.fat": "T\u0142uszcz",
+  "analytics.fiber": "B\u0142onnik",
+
+  "mounjaro.plasmaConc": "St\u0119\u017cenie w osoczu",
+  "mounjaro.appetiteSuppr": "T\u0142umienie apetytu",
+  "mounjaro.plasmaCurve": "Krzywa st\u0119\u017cenia w osoczu (prognoza 7 dni)",
+  "mounjaro.supprCurve": "T\u0142umienie apetytu (prognoza 7 dni)",
+  "mounjaro.history": "Historia zastrzyk\u00f3w",
+  "mounjaro.historyEmpty": "Brak historii.",
+  "mounjaro.empty": "Brak danych farmakokinetycznych. Zaloguj pierwszy zastrzyk.",
+  "mounjaro.concentration": "St\u0119\u017cenie",
+  "mounjaro.suppression": "T\u0142umienie"
+}

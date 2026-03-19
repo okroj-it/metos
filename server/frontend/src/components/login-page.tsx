@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { login } from "../api";
 import { setToken } from "../lib/auth";
 import { Utensils, Loader2, AlertCircle } from "lucide-react";
@@ -8,6 +9,7 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,7 +52,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 htmlFor="password"
                 className="block text-sm font-medium mb-1.5"
               >
-                Hasło
+                {t("login.password")}
               </label>
               <input
                 id="password"
@@ -58,7 +60,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-cal/50"
-                placeholder="Hasło"
+                placeholder={t("login.password")}
                 autoComplete="current-password"
                 autoFocus
                 required
@@ -80,10 +82,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Logowanie...
+                  {t("login.loading")}
                 </>
               ) : (
-                "Zaloguj"
+                t("login.submit")
               )}
             </button>
           </form>
