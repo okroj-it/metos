@@ -129,6 +129,27 @@ export function fetchAnalytics(days: number): Promise<AnalyticsDay[]> {
   return fetchJson<AnalyticsDay[]>(`/api/analytics?days=${days}`);
 }
 
+export interface CurvePoint {
+  hour: number;
+  plasma: number;
+  suppression: number;
+}
+
+export interface InjectionHistoryEntry {
+  date: string;
+  dose_mg: number;
+  site: string | null;
+}
+
+export interface KineticsData {
+  curve: CurvePoint[];
+  history: InjectionHistoryEntry[];
+}
+
+export function fetchKinetics(): Promise<KineticsData> {
+  return fetchJson<KineticsData>("/api/kinetics");
+}
+
 export function fetchInjection(): Promise<InjectionData | null> {
   return fetchJson<InjectionData | null>("/api/injection");
 }

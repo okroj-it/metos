@@ -127,6 +127,8 @@ pub const Server = struct {
                 try self.apiGoal(request);
             } else if (std.mem.startsWith(u8, target, "/api/analytics")) {
                 try self.apiAnalytics(request);
+            } else if (std.mem.startsWith(u8, target, "/api/kinetics")) {
+                try self.apiKinetics(request);
             } else if (std.mem.startsWith(u8, target, "/api/injection")) {
                 try self.apiInjection(request);
             } else {
@@ -442,6 +444,100 @@ pub const Server = struct {
             );
             return;
         };
+        defer self.allocator.free(json);
+
+        try request.respond(json, .{
+            .extra_headers = json_headers,
+        });
+    }
+
+    fn apiKinetics(
+        self: *Server,
+        request: *http.Server.Request,
+    ) !void {
+        const today = getToday(self.io);
+        const hour = getHourCET(self.io);
+
+        const recent = self.db.getRecentInjections(
+            &today,
+            hour,
+        ) catch {
+            try request.respond(
+                "{\"error\":\"query failed\"}",
+                .{ .status = .internal_server_error },
+            );
+            return;
+        };
+
+        const hours_since = if (recent.len > 0)
+            recent.records[0].hours_ago
+        else
+            168.0;
+
+        // Build JSON: {"curve":[...],"history":[...]}
+        var out: std.ArrayList(u8) = .empty;
+        defer out.deinit(self.allocator);
+        try out.appendSlice(
+            self.allocator,
+            "{\"curve\":[",
+        );
+
+        // Curve: 0–168h in 1h steps
+        var h: u16 = 0;
+        while (h <= 168) : (h += 1) {
+            if (h > 0) try out.appendSlice(
+                self.allocator,
+                ",",
+            );
+            const t: f64 = @floatFromInt(h);
+
+            var shifted: [8]kinetics.Dose = undefined;
+            for (0..recent.len) |i| {
+                shifted[i] = .{
+                    .hours_ago = recent.records[i]
+                        .hours_ago - t,
+                    .dose_mg = recent.records[i].dose_mg,
+                };
+            }
+
+            const plasma = kinetics.plasmaLevel(
+                shifted[0..recent.len],
+            );
+            const sup = kinetics.appetiteSuppression(
+                hours_since + t,
+            );
+
+            var pt_buf: [128]u8 = undefined;
+            const pt = std.fmt.bufPrint(
+                &pt_buf,
+                "{{\"hour\":{d},"
+                    ++ "\"plasma\":{d:.3},"
+                    ++ "\"suppression\":{d:.3}}}",
+                .{ h, plasma, @as(f64, sup) },
+            ) catch continue;
+            try out.appendSlice(self.allocator, pt);
+        }
+
+        try out.appendSlice(
+            self.allocator,
+            "],\"history\":",
+        );
+
+        const history = self.db.getInjectionHistoryJson(
+            self.allocator,
+        ) catch {
+            try request.respond(
+                "{\"error\":\"query failed\"}",
+                .{ .status = .internal_server_error },
+            );
+            return;
+        };
+        defer self.allocator.free(history);
+
+        try out.appendSlice(self.allocator, history);
+        try out.appendSlice(self.allocator, "}");
+
+        const json = try out.toOwnedSlice(self.allocator);
         defer self.allocator.free(json);
 
         try request.respond(json, .{

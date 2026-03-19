@@ -305,6 +305,44 @@ pub const Db = struct {
         return try out.toOwnedSlice(allocator);
     }
 
+    pub fn getInjectionHistoryJson(
+        self: Db,
+        allocator: std.mem.Allocator,
+    ) ![]const u8 {
+        var rows = try self.conn.rows(
+            \\SELECT injection_date,
+            \\  COALESCE(dose_mg, 2.5), site
+            \\FROM injections
+            \\ORDER BY injection_date DESC LIMIT 12
+        , .{});
+        defer rows.deinit();
+
+        var out: std.ArrayList(u8) = .empty;
+        defer out.deinit(allocator);
+        try out.appendSlice(allocator, "[");
+
+        var first = true;
+        while (rows.next()) |row| {
+            if (!first) try out.appendSlice(allocator, ",");
+            first = false;
+            const item = std.json.Stringify.valueAlloc(
+                allocator,
+                .{
+                    .date = row.text(0),
+                    .dose_mg = row.float(1),
+                    .site = row.nullableText(2),
+                },
+                .{},
+            ) catch return error.SerializationFailed;
+            defer allocator.free(item);
+            try out.appendSlice(allocator, item);
+        }
+        if (rows.err) |_| return error.QueryFailed;
+
+        try out.appendSlice(allocator, "]");
+        return try out.toOwnedSlice(allocator);
+    }
+
     pub fn getWeightJson(
         self: Db,
         allocator: std.mem.Allocator,

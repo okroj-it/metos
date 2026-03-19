@@ -42,6 +42,7 @@ import type {
   Goal,
   InjectionData,
   AnalyticsDay,
+  KineticsData,
 } from "./api.ts";
 import {
   fetchStats,
@@ -51,6 +52,7 @@ import {
   fetchGoal,
   fetchInjection,
   fetchAnalytics,
+  fetchKinetics,
   logInjection,
 } from "./api.ts";
 
@@ -641,6 +643,169 @@ function AnalyticsTab() {
   );
 }
 
+function MounjaroTab() {
+  const [data, setData] = useState<KineticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchKinetics()
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="text-center py-12 opacity-40">Loading...</div>;
+  }
+
+  if (!data || data.curve.length === 0) {
+    return (
+      <div className="glass p-8 text-center opacity-40 text-sm">
+        Brak danych farmakokinetycznych. Zaloguj pierwszy zastrzyk.
+      </div>
+    );
+  }
+
+  const history = [...data.history].reverse();
+  const nowHour = data.curve.findIndex((p) => p.hour === 0);
+  const currentPlasma = data.curve[nowHour]?.plasma ?? 0;
+  const currentSuppression = data.curve[nowHour]?.suppression ?? 0;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="glass p-4">
+          <div className="text-xs opacity-50 mb-1">Stężenie w osoczu</div>
+          <div className="text-2xl font-bold text-injection">
+            {currentPlasma.toFixed(2)}
+            <span className="text-sm opacity-50 ml-1">mg-eq</span>
+          </div>
+        </div>
+        <div className="glass p-4">
+          <div className="text-xs opacity-50 mb-1">Tłumienie apetytu</div>
+          <div className="text-2xl font-bold text-green-400">
+            {Math.round(currentSuppression * 100)}
+            <span className="text-sm opacity-50 ml-1">%</span>
+          </div>
+        </div>
+      </div>
+
+      <section className="glass p-5">
+        <h2 className="text-sm font-semibold opacity-60 mb-3">
+          Krzywa stężenia w osoczu (prognoza 7 dni)
+        </h2>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={data.curve}>
+            <defs>
+              <linearGradient id="gPlasma" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-injection)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--color-injection)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid {...chartGrid} />
+            <XAxis
+              dataKey="hour"
+              tick={chartAxis}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(h: number) => h % 24 === 0 ? `d${h / 24}` : ""}
+              interval={23}
+            />
+            <YAxis tick={chartAxis} tickLine={false} axisLine={false} width={36} />
+            <Tooltip
+              contentStyle={chartTooltip}
+              labelFormatter={(h) => `+${h}h (dzień ${(Number(h) / 24).toFixed(1)})`}
+              formatter={(v) => [`${Number(v).toFixed(3)} mg-eq`, "Stężenie"]}
+            />
+            <Area
+              type="monotone"
+              dataKey="plasma"
+              stroke="var(--color-injection)"
+              fill="url(#gPlasma)"
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </section>
+
+      <section className="glass p-5">
+        <h2 className="text-sm font-semibold opacity-60 mb-3">
+          Tłumienie apetytu (prognoza 7 dni)
+        </h2>
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={data.curve}>
+            <defs>
+              <linearGradient id="gSup" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-protein)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--color-protein)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid {...chartGrid} />
+            <XAxis
+              dataKey="hour"
+              tick={chartAxis}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(h: number) => h % 24 === 0 ? `d${h / 24}` : ""}
+              interval={23}
+            />
+            <YAxis
+              tick={chartAxis}
+              tickLine={false}
+              axisLine={false}
+              width={36}
+              domain={[0, 1]}
+              tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
+            />
+            <Tooltip
+              contentStyle={chartTooltip}
+              labelFormatter={(h) => `+${h}h (dzień ${(Number(h) / 24).toFixed(1)})`}
+              formatter={(v) => [`${(Number(v) * 100).toFixed(1)}%`, "Tłumienie"]}
+            />
+            <Area
+              type="monotone"
+              dataKey="suppression"
+              stroke="var(--color-protein)"
+              fill="url(#gSup)"
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </section>
+
+      <section className="glass p-5">
+        <h2 className="text-sm font-semibold opacity-60 mb-3">
+          Historia zastrzyków
+        </h2>
+        {history.length === 0 ? (
+          <p className="text-sm opacity-40">Brak historii.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {history.map((inj, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between text-sm py-2 border-b border-current/5 last:border-0"
+              >
+                <span className="opacity-70">{inj.date}</span>
+                <div className="flex gap-3 text-xs">
+                  <span className="text-injection font-medium">
+                    {inj.dose_mg} mg
+                  </span>
+                  {inj.site && (
+                    <span className="opacity-50">
+                      {SITE_LABELS[inj.site] ?? inj.site}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem("metos_theme");
@@ -971,15 +1136,7 @@ export function App() {
       )}
 
       {!loading && !error && tab === "mounjaro" && (
-        <div className="glass p-8 text-center">
-          <Syringe className="w-8 h-8 mx-auto mb-3 opacity-30" />
-          <p className="text-sm opacity-50">
-            Krzywa stężenia w osoczu, tłumienie apetytu, historia zastrzyków.
-          </p>
-          <p className="text-xs opacity-30 mt-1">
-            Wkrótce dostępne.
-          </p>
-        </div>
+        <MounjaroTab />
       )}
     </div>
   );
