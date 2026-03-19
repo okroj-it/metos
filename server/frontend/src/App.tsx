@@ -610,6 +610,10 @@ function AnalyticsTab() {
                     <stop offset="0%" stopColor="var(--color-fat)" stopOpacity={0.3} />
                     <stop offset="100%" stopColor="var(--color-fat)" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="gFiber" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-fiber)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--color-fiber)" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid {...chartGrid} />
                 <XAxis dataKey="date" tick={chartAxis} tickLine={false} axisLine={false} />
@@ -619,6 +623,7 @@ function AnalyticsTab() {
                 <Area type="monotone" dataKey="protein_g" name="Białko" stroke="var(--color-protein)" fill="url(#gProt)" strokeWidth={2} />
                 <Area type="monotone" dataKey="carbs_g" name="Węgl." stroke="var(--color-carbs)" fill="url(#gCarbs)" strokeWidth={2} />
                 <Area type="monotone" dataKey="fat_g" name="Tłuszcz" stroke="var(--color-fat)" fill="url(#gFat)" strokeWidth={2} />
+                <Area type="monotone" dataKey="fiber_g" name="Błonnik" stroke="var(--color-fiber)" fill="url(#gFiber)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </section>
