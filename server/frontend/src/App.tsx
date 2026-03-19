@@ -26,6 +26,8 @@ import {
   Syringe,
   BarChart3,
   TrendingUp,
+  LayoutDashboard,
+  Activity,
 } from "lucide-react";
 import { isTokenValid, clearToken } from "./lib/auth";
 import { LoginPage } from "./components/login-page";
@@ -516,9 +518,45 @@ function useDarkMode() {
   return [dark, () => setDark((d) => !d)] as const;
 }
 
+type Tab = "dashboard" | "analytics" | "mounjaro";
+
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
+  { id: "analytics", label: "Analityka", icon: <Activity className="w-4 h-4" /> },
+  { id: "mounjaro", label: "Mounjaro", icon: <Syringe className="w-4 h-4" /> },
+];
+
+function TabBar({
+  active,
+  onChange,
+}: {
+  active: Tab;
+  onChange: (t: Tab) => void;
+}) {
+  return (
+    <nav className="flex gap-1 bg-surface-raised rounded-xl p-1 mb-5">
+      {TABS.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm transition-colors ${
+            active === tab.id
+              ? "bg-surface-base font-semibold shadow-sm"
+              : "opacity-50 hover:opacity-80"
+          }`}
+        >
+          {tab.icon}
+          <span className="hidden sm:inline">{tab.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export function App() {
   const [dark, toggleDark] = useDarkMode();
   const [authed, setAuthed] = useState(() => isTokenValid());
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [date, setDate] = useState(() => new Date());
   const [stats, setStats] = useState<DailySummary | null>(null);
   const [meals, setMeals] = useState<Meal[]>([]);
@@ -589,7 +627,7 @@ export function App() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <header className="flex items-center justify-between mb-6">
+      <header className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">
             MetOS
@@ -618,6 +656,13 @@ export function App() {
           >
             <LogOut className="w-4 h-4" />
           </button>
+        </div>
+      </header>
+
+      <TabBar active={tab} onChange={setTab} />
+
+      {tab === "dashboard" && (
+        <div className="flex items-center justify-center gap-2 mb-5">
           <button
             onClick={() => shiftDate(-1)}
             className="p-2 rounded-lg hover:bg-surface-raised transition-colors"
@@ -640,7 +685,7 @@ export function App() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
-      </header>
+      )}
 
       {error && (
         <div className="glass p-4 mb-4 border-purine-high/30 text-purine-high text-sm">
@@ -654,7 +699,7 @@ export function App() {
         </div>
       )}
 
-      {!loading && !error && (
+      {!loading && !error && tab === "dashboard" && (
         <>
           {hasGoutAlert && (
             <div className="gout-banner flex items-center gap-3 p-4 mb-5">
@@ -782,6 +827,30 @@ export function App() {
             <WeightChart entries={weight} />
           </section>
         </>
+      )}
+
+      {!loading && !error && tab === "analytics" && (
+        <div className="glass p-8 text-center">
+          <Activity className="w-8 h-8 mx-auto mb-3 opacity-30" />
+          <p className="text-sm opacity-50">
+            Wykresy kalorii, makro i nawodnienia w czasie.
+          </p>
+          <p className="text-xs opacity-30 mt-1">
+            Wkrótce dostępne.
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && tab === "mounjaro" && (
+        <div className="glass p-8 text-center">
+          <Syringe className="w-8 h-8 mx-auto mb-3 opacity-30" />
+          <p className="text-sm opacity-50">
+            Krzywa stężenia w osoczu, tłumienie apetytu, historia zastrzyków.
+          </p>
+          <p className="text-xs opacity-30 mt-1">
+            Wkrótce dostępne.
+          </p>
+        </div>
       )}
     </div>
   );
