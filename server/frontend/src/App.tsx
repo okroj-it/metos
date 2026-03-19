@@ -1031,7 +1031,7 @@ export function App() {
             }}
           />
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
             <StatCard
               icon={<Flame className="w-4 h-4" />}
               label="Kalorie"
@@ -1059,6 +1059,13 @@ export function App() {
               value={stats?.total_fat_g ?? 0}
               unit="g"
               color="text-fat"
+            />
+            <StatCard
+              icon={<Wheat className="w-4 h-4" />}
+              label="Błonnik"
+              value={stats?.total_fiber_g ?? 0}
+              unit="g"
+              color="text-fiber"
             />
           </div>
 
