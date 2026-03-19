@@ -469,10 +469,11 @@ pub const Server = struct {
             return;
         };
 
-        const hours_since = if (recent.len > 0)
+        const has_doses = recent.len > 0;
+        const hours_since = if (has_doses)
             recent.records[0].hours_ago
         else
-            168.0;
+            0.0;
 
         // Build JSON: {"curve":[...],"history":[...]}
         var out: std.ArrayList(u8) = .empty;
@@ -503,9 +504,12 @@ pub const Server = struct {
             const plasma = kinetics.plasmaLevel(
                 shifted[0..recent.len],
             );
-            const sup = kinetics.appetiteSuppression(
-                hours_since + t,
-            );
+            const sup: f32 = if (has_doses)
+                kinetics.appetiteSuppression(
+                    hours_since + t,
+                )
+            else
+                0.0;
 
             var pt_buf: [128]u8 = undefined;
             const pt = std.fmt.bufPrint(
