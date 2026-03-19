@@ -251,6 +251,60 @@ pub const Db = struct {
         return result;
     }
 
+    pub fn getAnalyticsJson(
+        self: Db,
+        allocator: std.mem.Allocator,
+        from_date: []const u8,
+        to_date: []const u8,
+    ) ![]const u8 {
+        var rows = try self.conn.rows(
+            \\SELECT d.meal_date,
+            \\  COALESCE(d.total_calories, 0),
+            \\  COALESCE(d.total_protein_g, 0),
+            \\  COALESCE(d.total_carbs_g, 0),
+            \\  COALESCE(d.total_fat_g, 0),
+            \\  COALESCE(d.total_fiber_g, 0),
+            \\  COALESCE(w.water_ml, 0)
+            \\FROM daily_summary d
+            \\LEFT JOIN (
+            \\  SELECT log_date, SUM(water_ml) AS water_ml
+            \\  FROM water_log GROUP BY log_date
+            \\) w ON w.log_date = d.meal_date
+            \\WHERE d.meal_date >= ? AND d.meal_date <= ?
+            \\ORDER BY d.meal_date
+        , .{ from_date, to_date });
+        defer rows.deinit();
+
+        var out: std.ArrayList(u8) = .empty;
+        defer out.deinit(allocator);
+        try out.appendSlice(allocator, "[");
+
+        var first = true;
+        while (rows.next()) |row| {
+            if (!first) try out.appendSlice(allocator, ",");
+            first = false;
+            const item = std.json.Stringify.valueAlloc(
+                allocator,
+                .{
+                    .date = row.text(0),
+                    .calories = row.int(1),
+                    .protein_g = row.float(2),
+                    .carbs_g = row.float(3),
+                    .fat_g = row.float(4),
+                    .fiber_g = row.float(5),
+                    .water_ml = row.int(6),
+                },
+                .{},
+            ) catch return error.SerializationFailed;
+            defer allocator.free(item);
+            try out.appendSlice(allocator, item);
+        }
+        if (rows.err) |_| return error.QueryFailed;
+
+        try out.appendSlice(allocator, "]");
+        return try out.toOwnedSlice(allocator);
+    }
+
     pub fn getWeightJson(
         self: Db,
         allocator: std.mem.Allocator,

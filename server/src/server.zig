@@ -125,6 +125,8 @@ pub const Server = struct {
                 try self.apiWater(request);
             } else if (std.mem.startsWith(u8, target, "/api/goal")) {
                 try self.apiGoal(request);
+            } else if (std.mem.startsWith(u8, target, "/api/analytics")) {
+                try self.apiAnalytics(request);
             } else if (std.mem.startsWith(u8, target, "/api/injection")) {
                 try self.apiInjection(request);
             } else {
@@ -420,6 +422,33 @@ pub const Server = struct {
             .extra_headers = json_headers,
         });
     }
+    fn apiAnalytics(
+        self: *Server,
+        request: *http.Server.Request,
+    ) !void {
+        const today = getToday(self.io);
+        const days = getDaysParam(request.head.target) orelse 7;
+        var from_buf: [10]u8 = undefined;
+        const from = daysAgo(self.io, days, &from_buf);
+
+        const json = self.db.getAnalyticsJson(
+            self.allocator,
+            from,
+            &today,
+        ) catch {
+            try request.respond(
+                "{\"error\":\"query failed\"}",
+                .{ .status = .internal_server_error },
+            );
+            return;
+        };
+        defer self.allocator.free(json);
+
+        try request.respond(json, .{
+            .extra_headers = json_headers,
+        });
+    }
+
     fn apiInjection(
         self: *Server,
         request: *http.Server.Request,
@@ -653,4 +682,32 @@ fn getHourCET(io: Io) u8 {
     const day_secs = secs % 86400;
     const utc_hour: u8 = @intCast(day_secs / 3600);
     return (utc_hour + 1) % 24; // CET = UTC+1
+}
+
+fn getDaysParam(target: []const u8) ?u16 {
+    if (std.mem.indexOf(u8, target, "?days=")) |idx| {
+        const rest = target[idx + 6 ..];
+        const end = std.mem.indexOfAny(u8, rest, "&") orelse
+            rest.len;
+        return std.fmt.parseInt(u16, rest[0..end], 10) catch null;
+    }
+    return null;
+}
+
+fn daysAgo(io: Io, days: u16, buf: *[10]u8) []const u8 {
+    const ts = Io.Timestamp.now(io, .real);
+    const secs: u64 = @intCast(ts.toSeconds());
+    const offset: u64 = @as(u64, days) * 86400;
+    const past = std.time.epoch.EpochSeconds{
+        .secs = secs -| offset,
+    };
+    const day = past.getEpochDay();
+    const yd = day.calculateYearDay();
+    const ymd = yd.calculateMonthDay();
+    _ = std.fmt.bufPrint(buf, "{d:0>4}-{d:0>2}-{d:0>2}", .{
+        yd.year,
+        @intFromEnum(ymd.month),
+        ymd.day_index + 1,
+    }) catch unreachable;
+    return buf;
 }

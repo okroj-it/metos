@@ -115,6 +115,20 @@ export function fetchGoal(): Promise<Goal | null> {
   return fetchJson<Goal | null>("/api/goal");
 }
 
+export interface AnalyticsDay {
+  date: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number;
+  water_ml: number;
+}
+
+export function fetchAnalytics(days: number): Promise<AnalyticsDay[]> {
+  return fetchJson<AnalyticsDay[]>(`/api/analytics?days=${days}`);
+}
+
 export function fetchInjection(): Promise<InjectionData | null> {
   return fetchJson<InjectionData | null>("/api/injection");
 }

@@ -5,10 +5,13 @@ import {
   Bar,
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
 } from "recharts";
 import {
   ChevronLeft,
@@ -38,6 +41,7 @@ import type {
   WaterData,
   Goal,
   InjectionData,
+  AnalyticsDay,
 } from "./api.ts";
 import {
   fetchStats,
@@ -46,6 +50,7 @@ import {
   fetchWater,
   fetchGoal,
   fetchInjection,
+  fetchAnalytics,
   logInjection,
 } from "./api.ts";
 
@@ -504,6 +509,138 @@ function InjectionSection({
   );
 }
 
+const RANGE_OPTIONS = [
+  { days: 7, label: "7d" },
+  { days: 14, label: "14d" },
+  { days: 30, label: "30d" },
+  { days: 90, label: "90d" },
+];
+
+const chartGrid = {
+  strokeDasharray: "3 3",
+  stroke: "currentColor",
+  strokeOpacity: 0.07,
+};
+const chartAxis = { fontSize: 10, opacity: 0.4 };
+const chartTooltip = {
+  backgroundColor: "var(--color-surface-raised)",
+  border: "1px solid color-mix(in srgb, currentColor 15%, transparent)",
+  borderRadius: "8px",
+  fontSize: "12px",
+};
+
+function AnalyticsTab() {
+  const [days, setDays] = useState(7);
+  const [data, setData] = useState<AnalyticsDay[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchAnalytics(days)
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [days]);
+
+  const chartData = data.map((d) => ({
+    ...d,
+    date: d.date.slice(5),
+  }));
+
+  return (
+    <>
+      <div className="flex justify-end mb-4">
+        <div className="flex gap-1 bg-surface-raised rounded-lg p-0.5">
+          {RANGE_OPTIONS.map((opt) => (
+            <button
+              key={opt.days}
+              onClick={() => setDays(opt.days)}
+              className={`px-3 py-1.5 rounded-md text-xs transition-colors ${
+                days === opt.days
+                  ? "bg-surface-base font-semibold shadow-sm"
+                  : "opacity-40 hover:opacity-70"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12 opacity-40">Loading...</div>
+      ) : data.length === 0 ? (
+        <div className="glass p-8 text-center opacity-40 text-sm">
+          Brak danych w wybranym zakresie.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-5">
+          <section className="glass p-5">
+            <h2 className="text-sm font-semibold opacity-60 mb-3">
+              Kalorie
+            </h2>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={chartData}>
+                <CartesianGrid {...chartGrid} />
+                <XAxis dataKey="date" tick={chartAxis} tickLine={false} axisLine={false} />
+                <YAxis tick={chartAxis} tickLine={false} axisLine={false} width={40} />
+                <Tooltip contentStyle={chartTooltip} />
+                <Bar dataKey="calories" name="kcal" fill="var(--color-cal)" radius={[3, 3, 0, 0]} opacity={0.85} />
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
+
+          <section className="glass p-5">
+            <h2 className="text-sm font-semibold opacity-60 mb-3">
+              Makroskładniki
+            </h2>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="gProt" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-protein)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--color-protein)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gCarbs" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-carbs)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--color-carbs)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gFat" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-fat)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--color-fat)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid {...chartGrid} />
+                <XAxis dataKey="date" tick={chartAxis} tickLine={false} axisLine={false} />
+                <YAxis tick={chartAxis} tickLine={false} axisLine={false} width={40} />
+                <Tooltip contentStyle={chartTooltip} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px", opacity: 0.7 }} />
+                <Area type="monotone" dataKey="protein_g" name="Białko" stroke="var(--color-protein)" fill="url(#gProt)" strokeWidth={2} />
+                <Area type="monotone" dataKey="carbs_g" name="Węgl." stroke="var(--color-carbs)" fill="url(#gCarbs)" strokeWidth={2} />
+                <Area type="monotone" dataKey="fat_g" name="Tłuszcz" stroke="var(--color-fat)" fill="url(#gFat)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </section>
+
+          <section className="glass p-5">
+            <h2 className="text-sm font-semibold opacity-60 mb-3">
+              Nawodnienie
+            </h2>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={chartData}>
+                <CartesianGrid {...chartGrid} />
+                <XAxis dataKey="date" tick={chartAxis} tickLine={false} axisLine={false} />
+                <YAxis tick={chartAxis} tickLine={false} axisLine={false} width={40} />
+                <Tooltip contentStyle={chartTooltip} formatter={(v) => [`${v} ml`, "Woda"]} />
+                <Bar dataKey="water_ml" name="ml" fill="var(--color-water)" radius={[3, 3, 0, 0]} opacity={0.75} />
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem("metos_theme");
@@ -830,15 +967,7 @@ export function App() {
       )}
 
       {!loading && !error && tab === "analytics" && (
-        <div className="glass p-8 text-center">
-          <Activity className="w-8 h-8 mx-auto mb-3 opacity-30" />
-          <p className="text-sm opacity-50">
-            Wykresy kalorii, makro i nawodnienia w czasie.
-          </p>
-          <p className="text-xs opacity-30 mt-1">
-            Wkrótce dostępne.
-          </p>
-        </div>
+        <AnalyticsTab />
       )}
 
       {!loading && !error && tab === "mounjaro" && (
