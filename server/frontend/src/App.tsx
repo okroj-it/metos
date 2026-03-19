@@ -1,5 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
+import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
@@ -13,6 +24,8 @@ import {
   Sun,
   Moon,
   Syringe,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { isTokenValid, clearToken } from "./lib/auth";
 import { LoginPage } from "./components/login-page";
@@ -207,42 +220,125 @@ function MealRow({ meal }: { meal: Meal }) {
 }
 
 function WeightChart({ entries }: { entries: WeighIn[] }) {
+  const [mode, setMode] = useState<"bar" | "line">("line");
+
   if (entries.length === 0) {
     return (
       <p className="text-sm opacity-40">Brak danych ważenia.</p>
     );
   }
 
-  const weights = entries.map((e) => e.weight_kg);
+  const sorted = [...entries].sort(
+    (a, b) => a.weigh_date.localeCompare(b.weigh_date),
+  );
+  const data = sorted.map((e) => ({
+    date: e.weigh_date.slice(5),
+    kg: e.weight_kg,
+    notes: e.notes,
+  }));
+
+  const weights = data.map((d) => d.kg);
   const min = Math.min(...weights);
   const max = Math.max(...weights);
-  const range = max - min || 1;
+  const pad = Math.max((max - min) * 0.15, 0.3);
+
+  const tooltipStyle = {
+    backgroundColor: "var(--color-surface-raised)",
+    border: "1px solid color-mix(in srgb, currentColor 15%, transparent)",
+    borderRadius: "8px",
+    fontSize: "12px",
+  };
 
   return (
-    <div className="flex items-end gap-1.5 h-32">
-      {entries.map((entry, i) => {
-        const heightPct =
-          20 + ((entry.weight_kg - min) / range) * 80;
-        return (
-          <div
-            key={i}
-            className="flex-1 flex flex-col items-center gap-1"
+    <>
+      <div className="flex justify-end mb-2">
+        <div className="flex gap-1 bg-surface-raised rounded-lg p-0.5">
+          <button
+            onClick={() => setMode("bar")}
+            className={`p-1.5 rounded-md transition-colors ${mode === "bar" ? "bg-protein/20 text-protein" : "opacity-40 hover:opacity-70"}`}
+            title="Słupki"
           >
-            <span className="text-[10px] opacity-50">
-              {entry.weight_kg.toFixed(1)}
-            </span>
-            <div
-              className="bar-chart-bar w-full bg-gradient-to-t from-protein to-protein/40"
-              style={{ height: `${heightPct}%` }}
-              title={`${entry.weigh_date}: ${entry.weight_kg} kg${entry.notes ? ` - ${entry.notes}` : ""}`}
+            <BarChart3 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setMode("line")}
+            className={`p-1.5 rounded-md transition-colors ${mode === "line" ? "bg-protein/20 text-protein" : "opacity-40 hover:opacity-70"}`}
+            title="Linia"
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={160}>
+        {mode === "bar" ? (
+          <BarChart data={data}>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="currentColor"
+              strokeOpacity={0.07}
             />
-            <span className="text-[9px] opacity-30">
-              {entry.weigh_date.slice(5)}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10, opacity: 0.4 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              domain={[min - pad, max + pad]}
+              tick={{ fontSize: 10, opacity: 0.4 }}
+              tickLine={false}
+              axisLine={false}
+              width={36}
+              tickFormatter={(v: number) => v.toFixed(1)}
+            />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(v) => [`${Number(v).toFixed(1)} kg`, "Waga"]}
+            />
+            <Bar
+              dataKey="kg"
+              fill="var(--color-protein)"
+              radius={[4, 4, 0, 0]}
+              opacity={0.8}
+            />
+          </BarChart>
+        ) : (
+          <LineChart data={data}>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="currentColor"
+              strokeOpacity={0.07}
+            />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10, opacity: 0.4 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              domain={[min - pad, max + pad]}
+              tick={{ fontSize: 10, opacity: 0.4 }}
+              tickLine={false}
+              axisLine={false}
+              width={36}
+              tickFormatter={(v: number) => v.toFixed(1)}
+            />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(v) => [`${Number(v).toFixed(1)} kg`, "Waga"]}
+            />
+            <Line
+              type="monotone"
+              dataKey="kg"
+              stroke="var(--color-protein)"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "var(--color-protein)" }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        )}
+      </ResponsiveContainer>
+    </>
   );
 }
 
