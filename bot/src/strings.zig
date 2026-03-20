@@ -10,6 +10,13 @@ pub const Locale = enum {
             .pl => "Polish",
         };
     }
+
+    pub fn llmCode(self: Locale) []const u8 {
+        return switch (self) {
+            .en => "en",
+            .pl => "pl",
+        };
+    }
 };
 
 pub const Key = enum {
@@ -75,6 +82,18 @@ pub const Key = enum {
     // cmd_*
     cmd_start,
     cmd_help,
+
+    // menu descriptions
+    menu_start,
+    menu_help,
+    menu_weight,
+    menu_water,
+    menu_stats,
+    menu_meals,
+    menu_history,
+    menu_goal,
+    menu_injection,
+    menu_undo,
 
     // meal
     meal_summary,
@@ -315,6 +334,18 @@ fn enStr(key: Key) []const u8 {
                 ++ "\xCE\xAC \xCE\x9C\xCE\xAD"
                 ++ "\xCE\xB8\xCE\xBF\xCE\xB4"
                 ++ "\xCE\xBF\xCE\xBD",
+
+        // --- menu descriptions ---
+        .menu_start => "Start MetOS",
+        .menu_help => "Show commands",
+        .menu_weight => "Log weight",
+        .menu_water => "Log water intake",
+        .menu_stats => "Daily summary",
+        .menu_meals => "List meals",
+        .menu_history => "Weight history",
+        .menu_goal => "Set calorie/protein goal",
+        .menu_injection => "Log Mounjaro injection",
+        .menu_undo => "Delete last meal",
 
         // --- meal ---
         .meal_summary =>
@@ -671,6 +702,25 @@ fn plStr(key: Key) []const u8 {
                 ++ "\xCE\xAC \xCE\x9C\xCE\xAD"
                 ++ "\xCE\xB8\xCE\xBF\xCE\xB4"
                 ++ "\xCE\xBF\xCE\xBD",
+
+        // --- menu descriptions ---
+        .menu_start => "Uruchom MetOS",
+        .menu_help => "Poka\xC5\xBC komendy",
+        .menu_weight => "Zapisz wag\xC4\x99",
+        .menu_water =>
+            "Zapisz wod\xC4\x99",
+        .menu_stats =>
+            "Podsumowanie dnia",
+        .menu_meals =>
+            "Lista posi\xC5\x82k\xC3\xB3w",
+        .menu_history =>
+            "Historia wagi",
+        .menu_goal =>
+            "Ustaw cel kcal/bia\xC5\x82ko",
+        .menu_injection =>
+            "Zapisz zastrzyk Mounjaro",
+        .menu_undo =>
+            "Usu\xC5\x84 ostatni posi\xC5\x82ek",
 
         // --- meal ---
         .meal_summary =>

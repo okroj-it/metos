@@ -100,6 +100,8 @@ pub const Bot = struct {
     }
 
     pub fn run(self: *Bot) !void {
+        self.registerCommands(.en) catch {};
+        self.registerCommands(.pl) catch {};
         std.log.info("telegram bot started", .{});
         while (true) {
             self.pollUpdates() catch |err| {
@@ -1599,6 +1601,134 @@ pub const Bot = struct {
         var transfer_buf: [1024]u8 = undefined;
         const reader = response.reader(&transfer_buf);
         _ = reader.discardRemaining() catch {};
+    }
+
+    const CmdEntry = struct {
+        command: []const u8,
+        description: []const u8,
+    };
+
+    fn registerCommands(
+        self: *Bot,
+        locale: strings.Locale,
+    ) !void {
+        const cmds = [_]CmdEntry{
+            .{
+                .command = "start",
+                .description = strings.get(
+                    locale, .menu_start,
+                ),
+            },
+            .{
+                .command = "help",
+                .description = strings.get(
+                    locale, .menu_help,
+                ),
+            },
+            .{
+                .command = "weight",
+                .description = strings.get(
+                    locale, .menu_weight,
+                ),
+            },
+            .{
+                .command = "water",
+                .description = strings.get(
+                    locale, .menu_water,
+                ),
+            },
+            .{
+                .command = "stats",
+                .description = strings.get(
+                    locale, .menu_stats,
+                ),
+            },
+            .{
+                .command = "meals",
+                .description = strings.get(
+                    locale, .menu_meals,
+                ),
+            },
+            .{
+                .command = "history",
+                .description = strings.get(
+                    locale, .menu_history,
+                ),
+            },
+            .{
+                .command = "goal",
+                .description = strings.get(
+                    locale, .menu_goal,
+                ),
+            },
+            .{
+                .command = "injection",
+                .description = strings.get(
+                    locale, .menu_injection,
+                ),
+            },
+            .{
+                .command = "undo",
+                .description = strings.get(
+                    locale, .menu_undo,
+                ),
+            },
+        };
+
+        const body = std.json.Stringify.valueAlloc(
+            self.allocator,
+            .{
+                .commands = cmds,
+                .language_code = locale.llmCode(),
+            },
+            .{},
+        ) catch return error.SerializationFailed;
+        defer self.allocator.free(body);
+
+        var url_buf: [256]u8 = undefined;
+        const url = std.fmt.bufPrint(
+            &url_buf,
+            "https://api.telegram.org/bot{s}"
+                ++ "/setMyCommands",
+            .{self.bot_token},
+        ) catch return error.UrlTooLong;
+
+        const uri = std.Uri.parse(url) catch
+            return error.InvalidUrl;
+
+        var client: std.http.Client = .{
+            .allocator = self.allocator,
+            .io = self.io,
+        };
+        defer client.deinit();
+
+        var req = try client.request(.POST, uri, .{
+            .extra_headers = &.{
+                .{
+                    .name = "Content-Type",
+                    .value = "application/json",
+                },
+            },
+        });
+        defer req.deinit();
+
+        req.transfer_encoding = .{
+            .content_length = body.len,
+        };
+        var send_body = try req.sendBodyUnflushed(
+            &.{},
+        );
+        try send_body.writer.writeAll(body);
+        try send_body.end();
+        try req.connection.?.flush();
+
+        var redirect_buf: [1]u8 = undefined;
+        var response = try req.receiveHead(
+            &redirect_buf,
+        );
+        var transfer_buf: [1024]u8 = undefined;
+        const rdr = response.reader(&transfer_buf);
+        _ = rdr.discardRemaining() catch {};
     }
 };
 
