@@ -272,7 +272,7 @@ pub const Bot = struct {
         } else if (std.mem.startsWith(u8, text, "/start")) {
             try self.startOnboarding(chat_id.integer);
         } else if (std.mem.startsWith(u8, text, "/settings")) {
-            try self.handleSettings(chat_id.integer);
+            try self.handleSettings(chat_id.integer, text);
         } else if (std.mem.startsWith(u8, text, "/help")) {
             try self.sendMessage(
                 chat_id.integer,
@@ -1012,6 +1012,15 @@ pub const Bot = struct {
         self: *Bot,
         chat_id: i64,
     ) !void {
+        const cfg = self.db.getUserConfig() catch null;
+        if (cfg != null and cfg.?.onboarded) {
+            try self.sendMessage(
+                chat_id,
+                self.s(.cmd_start),
+            );
+            return;
+        }
+
         self.clearPending();
         try self.sendMessage(
             chat_id,
@@ -1095,13 +1104,28 @@ pub const Bot = struct {
         }
     }
 
-    fn handleSettings(self: *Bot, chat_id: i64) !void {
+    fn handleSettings(
+        self: *Bot,
+        chat_id: i64,
+        text: []const u8,
+    ) !void {
+        const after_cmd = if (text.len > 9)
+            text[9..]
+        else
+            "";
+        const trimmed = std.mem.trimStart(
+            u8, after_cmd, " ",
+        );
+        if (std.mem.eql(u8, trimmed, "reset")) {
+            self.forceOnboarding(chat_id);
+            return;
+        }
         var buf: [256]u8 = undefined;
         const msg = self.fmt(
             &buf,
             .settings_current,
             .{
-                self.locale.llmName(),
+                self.locale.nativeName(),
                 if (self.gout_tracking)
                     @as([]const u8, "\xE2\x9C\x85")
                 else
@@ -1113,6 +1137,24 @@ pub const Bot = struct {
             },
         ) orelse self.s(.settings_updated);
         try self.sendMessage(chat_id, msg);
+    }
+
+    fn forceOnboarding(self: *Bot, chat_id: i64) void {
+        self.clearPending();
+        self.sendMessage(
+            chat_id,
+            self.s(.onboard_welcome),
+        ) catch return;
+        self.pending = .onboard_locale;
+        self.pending_chat_id = chat_id;
+        self.sendWithButtons(
+            chat_id,
+            self.s(.onboard_ask_locale),
+            "English",
+            "locale_en",
+            "Polski",
+            "locale_pl",
+        ) catch {};
     }
 
     // --- Read-only handlers ---
@@ -1827,6 +1869,12 @@ pub const Bot = struct {
                 .command = "help",
                 .description = strings.get(
                     locale, .menu_help,
+                ),
+            },
+            .{
+                .command = "settings",
+                .description = strings.get(
+                    locale, .menu_settings,
                 ),
             },
             .{

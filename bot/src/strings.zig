@@ -11,6 +11,13 @@ pub const Locale = enum {
         };
     }
 
+    pub fn nativeName(self: Locale) []const u8 {
+        return switch (self) {
+            .en => "English",
+            .pl => "Polski",
+        };
+    }
+
     pub fn llmCode(self: Locale) []const u8 {
         return switch (self) {
             .en => "en",
@@ -86,6 +93,7 @@ pub const Key = enum {
     // menu descriptions
     menu_start,
     menu_help,
+    menu_settings,
     menu_weight,
     menu_water,
     menu_stats,
@@ -351,8 +359,9 @@ fn enStr(key: Key) []const u8 {
                 ++ "\xCE\xBF\xCE\xBD",
 
         // --- menu descriptions ---
-        .menu_start => "Start MetOS",
+        .menu_start => "Set up your profile",
         .menu_help => "Show commands",
+        .menu_settings => "View current settings",
         .menu_weight => "Log weight",
         .menu_water => "Log water intake",
         .menu_stats => "Daily summary",
@@ -555,7 +564,7 @@ fn enStr(key: Key) []const u8 {
                 ++ "\nLocale: {s}"
                 ++ "\nGout tracking: {s}"
                 ++ "\nGLP-1 tracking: {s}"
-                ++ "\n\nUse /start to reconfigure.",
+                ++ "\n\n/settings reset to reconfigure",
         .settings_updated =>
             "\xE2\x9C\x85 Settings updated.",
 
@@ -763,8 +772,10 @@ fn plStr(key: Key) []const u8 {
                 ++ "\xCE\xBF\xCE\xBD",
 
         // --- menu descriptions ---
-        .menu_start => "Uruchom MetOS",
+        .menu_start => "Skonfiguruj profil",
         .menu_help => "Poka\xC5\xBC komendy",
+        .menu_settings =>
+            "Poka\xC5\xBC ustawienia",
         .menu_weight => "Zapisz wag\xC4\x99",
         .menu_water =>
             "Zapisz wod\xC4\x99",
@@ -1015,8 +1026,8 @@ fn plStr(key: Key) []const u8 {
                 ++ "\nJ\xC4\x99zyk: {s}"
                 ++ "\n\xC5\x9Aledzenie dny: {s}"
                 ++ "\n\xC5\x9Aledzenie GLP-1: {s}"
-                ++ "\n\nU\xC5\xBCyj /start"
-                ++ " aby zmieni\xC4\x87.",
+                ++ "\n\n/settings reset"
+                ++ " aby zmieni\xC4\x87",
         .settings_updated =>
             "\xE2\x9C\x85 Ustawienia zapisane.",
 
