@@ -45,6 +45,7 @@ import type {
   InjectionData,
   AnalyticsDay,
   KineticsData,
+  AppConfig,
 } from "./api.ts";
 import {
   fetchStats,
@@ -56,6 +57,7 @@ import {
   fetchAnalytics,
   fetchKinetics,
   logInjection,
+  fetchConfig,
 } from "./api.ts";
 
 function formatDate(d: Date): string {
@@ -183,7 +185,7 @@ function GoalProgress({
   );
 }
 
-function MealRow({ meal }: { meal: Meal }) {
+function MealRow({ meal, gout }: { meal: Meal; gout: boolean }) {
   const { t } = useTranslation();
   const badge = purineBadge(meal.purine_level, t);
   const conf = confidenceBadge(meal.purine_confidence, t);
@@ -194,26 +196,28 @@ function MealRow({ meal }: { meal: Meal }) {
           <span className="font-medium truncate">
             {meal.meal_name}
           </span>
-          <span className={`purine-badge ${badge.color} ${badge.bg}`}>
-            {badge.label}
-          </span>
-          {conf.label && (
+          {gout && (
+            <span className={`purine-badge ${badge.color} ${badge.bg}`}>
+              {badge.label}
+            </span>
+          )}
+          {gout && conf.label && (
             <span className={`text-xs ${conf.color}`}>
               {conf.label}
             </span>
           )}
-          {meal.gout_warning === 1 && (
+          {gout && meal.gout_warning === 1 && (
             <span className="text-purine-high text-sm" title={t("purine.goutRisk")}>
               {"\u{1F480}"}
             </span>
           )}
         </div>
-        {meal.purine_mg > 0 && (
+        {gout && meal.purine_mg > 0 && (
           <span className="text-xs opacity-40">
             {meal.purine_mg} {t("purine.mgLabel")}
           </span>
         )}
-        {meal.purine_notes && (
+        {gout && meal.purine_notes && (
           <span className="text-xs opacity-50 italic block">
             {meal.purine_notes}
           </span>
@@ -841,7 +845,7 @@ function useDarkMode() {
 
 type Tab = "dashboard" | "analytics" | "mounjaro";
 
-const TAB_IDS: { id: Tab; icon: React.ReactNode }[] = [
+const ALL_TABS: { id: Tab; icon: React.ReactNode }[] = [
   { id: "dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
   { id: "analytics", icon: <Activity className="w-4 h-4" /> },
   { id: "mounjaro", icon: <Syringe className="w-4 h-4" /> },
@@ -850,9 +854,11 @@ const TAB_IDS: { id: Tab; icon: React.ReactNode }[] = [
 function TabBar({
   active,
   onChange,
+  glp1,
 }: {
   active: Tab;
   onChange: (t: Tab) => void;
+  glp1: boolean;
 }) {
   const { t } = useTranslation();
   const tabLabels: Record<Tab, string> = {
@@ -860,9 +866,10 @@ function TabBar({
     analytics: t("tab.analytics"),
     mounjaro: t("tab.mounjaro"),
   };
+  const tabs = glp1 ? ALL_TABS : ALL_TABS.filter((tab) => tab.id !== "mounjaro");
   return (
     <nav className="flex gap-1 bg-surface-raised rounded-xl p-1 mb-5">
-      {TAB_IDS.map((tab) => (
+      {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
@@ -892,6 +899,7 @@ export function App() {
   const [water, setWater] = useState<WaterData | null>(null);
   const [goal, setGoal] = useState<Goal | null>(null);
   const [injection, setInjection] = useState<InjectionData | null>(null);
+  const [config, setConfig] = useState<AppConfig>({ gout_tracking: true, glp1_tracking: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -901,13 +909,14 @@ export function App() {
     setLoading(true);
     setError(null);
     try {
-      const [s, m, wt, wa, g, inj] = await Promise.all([
+      const [s, m, wt, wa, g, inj, cfg] = await Promise.all([
         fetchStats(d),
         fetchMeals(d),
         fetchWeight(),
         fetchWater(d),
         fetchGoal(),
         fetchInjection(),
+        fetchConfig(),
       ]);
       setStats(s);
       setMeals(m);
@@ -915,6 +924,7 @@ export function App() {
       setWater(wa);
       setGoal(g);
       setInjection(inj);
+      setConfig(cfg);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to load data";
@@ -995,7 +1005,7 @@ export function App() {
         </div>
       </header>
 
-      <TabBar active={tab} onChange={setTab} />
+      <TabBar active={tab} onChange={setTab} glp1={config.glp1_tracking} />
 
       {tab === "dashboard" && (
         <div className="flex items-center justify-center gap-2 mb-5">
@@ -1037,7 +1047,7 @@ export function App() {
 
       {!loading && !error && tab === "dashboard" && (
         <>
-          {hasGoutAlert && (
+          {config.gout_tracking && hasGoutAlert && (
             <div className="gout-banner flex items-center gap-3 p-4 mb-5">
               <AlertTriangle className="w-5 h-5 text-purine-high flex-shrink-0" />
               <div>
@@ -1051,13 +1061,15 @@ export function App() {
             </div>
           )}
 
-          <InjectionSection
-            data={injection}
-            onLog={async () => {
-              const result = await logInjection();
-              setInjection(result);
-            }}
-          />
+          {config.glp1_tracking && (
+            <InjectionSection
+              data={injection}
+              onLog={async () => {
+                const result = await logInjection();
+                setInjection(result);
+              }}
+            />
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
             <StatCard
@@ -1143,7 +1155,7 @@ export function App() {
             ) : (
               <div className="flex flex-col gap-2">
                 {meals.map((meal, i) => (
-                  <MealRow key={i} meal={meal} />
+                  <MealRow key={i} meal={meal} gout={config.gout_tracking} />
                 ))}
               </div>
             )}

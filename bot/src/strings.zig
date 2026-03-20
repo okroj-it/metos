@@ -97,6 +97,7 @@ pub const Key = enum {
 
     // meal
     meal_summary,
+    meal_summary_basic,
     meal_date_note,
     gout_warning_line,
     meal_saved_fallback,
@@ -143,6 +144,20 @@ pub const Key = enum {
     alert_injection_phase_early,
     alert_injection_phase_peak,
     alert_injection_phase_late,
+
+    // onboarding
+    onboard_welcome,
+    onboard_ask_locale,
+    onboard_ask_gout,
+    onboard_ask_glp1,
+    onboard_done,
+
+    // settings
+    settings_current,
+    settings_updated,
+
+    // feature disabled
+    feature_injection_disabled,
 };
 
 pub fn get(locale: Locale, key: Key) []const u8 {
@@ -358,6 +373,13 @@ fn enStr(key: Key) []const u8 {
                 ++ " confidence: {s}\n"
                 ++ "Water: {d}ml\n"
                 ++ "{s}{s}",
+        .meal_summary_basic =>
+            "\xE2\x9C\x85 {s}\n"
+                ++ "{d} kcal"
+                ++ " | P:{d:.0}g C:{d:.0}g F:{d:.0}g\n"
+                ++ "Fiber: {d:.0}g"
+                ++ " | Protein density: {d:.2}\n"
+                ++ "Water: {d}ml",
         .meal_date_note =>
             "\xF0\x9F\x93\x85 Logged for {s}\n",
         .gout_warning_line =>
@@ -505,6 +527,43 @@ fn enStr(key: Key) []const u8 {
                 ++ " Watch for impulses!"
                 ++ "\nStick to your"
                 ++ " macro plan.",
+
+        // --- onboarding ---
+        .onboard_welcome =>
+            "\xE2\x96\x88 MetOS \xE2\x80\x94"
+                ++ " Metabolic Operating System"
+                ++ "\n\nLet's set up your profile.",
+        .onboard_ask_locale =>
+            "\xF0\x9F\x8C\x90 Choose your language:",
+        .onboard_ask_gout =>
+            "Do you want gout/purine tracking?"
+                ++ "\n(Monitors uric acid risk"
+                ++ " from food)",
+        .onboard_ask_glp1 =>
+            "Are you taking a GLP-1 agonist"
+                ++ " (Mounjaro/Ozempic/Wegovy)?"
+                ++ "\n(Enables injection tracking"
+                ++ " and pharmacokinetics)",
+        .onboard_done =>
+            "\xE2\x9C\x85 Setup complete!"
+                ++ " Send a meal description"
+                ++ " or type /help.",
+
+        // --- settings ---
+        .settings_current =>
+            "\xE2\x9A\x99\xEF\xB8\x8F Settings:"
+                ++ "\nLocale: {s}"
+                ++ "\nGout tracking: {s}"
+                ++ "\nGLP-1 tracking: {s}"
+                ++ "\n\nUse /start to reconfigure.",
+        .settings_updated =>
+            "\xE2\x9C\x85 Settings updated.",
+
+        // --- feature disabled ---
+        .feature_injection_disabled =>
+            "Injection tracking is disabled."
+                ++ " Use /start to enable GLP-1"
+                ++ " tracking.",
     };
 }
 
@@ -734,6 +793,14 @@ fn plStr(key: Key) []const u8 {
                 ++ " pewno\xC5\x9B\xC4\x87: {s}\n"
                 ++ "Woda: {d}ml\n"
                 ++ "{s}{s}",
+        .meal_summary_basic =>
+            "\xE2\x9C\x85 {s}\n"
+                ++ "{d} kcal"
+                ++ " | B:{d:.0}g W:{d:.0}g T:{d:.0}g\n"
+                ++ "B\xC5\x82onnik: {d:.0}g"
+                ++ " | G\xC4\x99sto\xC5\x9B\xC4\x87"
+                ++ " bia\xC5\x82ka: {d:.2}\n"
+                ++ "Woda: {d}ml",
         .meal_date_note =>
             "\xF0\x9F\x93\x85 Zapisano na {s}\n",
         .gout_warning_line =>
@@ -915,5 +982,50 @@ fn plStr(key: Key) []const u8 {
                 ++ " Uwa\xC5\xBCaj na impulsy!"
                 ++ "\nTrzymaj si\xC4\x99"
                 ++ " planu makro.",
+
+        // --- onboarding ---
+        .onboard_welcome =>
+            "\xE2\x96\x88 MetOS \xE2\x80\x94"
+                ++ " Metabolic Operating System"
+                ++ "\n\nSkonfigurujmy Tw\xC3\xB3j"
+                ++ " profil.",
+        .onboard_ask_locale =>
+            "\xF0\x9F\x8C\x90"
+                ++ " Wybierz j\xC4\x99zyk:",
+        .onboard_ask_gout =>
+            "Czy chcesz \xC5\x9Bledzi\xC4\x87"
+                ++ " puryny/dn\xC4\x99 moczanow\xC4\x85?"
+                ++ "\n(Monitoruje ryzyko kwasu"
+                ++ " moczowego z jedzenia)",
+        .onboard_ask_glp1 =>
+            "Czy przyjmujesz agonist\xC4\x99"
+                ++ " GLP-1"
+                ++ " (Mounjaro/Ozempic/Wegovy)?"
+                ++ "\n(W\xC5\x82\xC4\x85cza"
+                ++ " \xC5\x9Bledzenie zastrzyk\xC3\xB3w"
+                ++ " i farmakokinetyk\xC4\x99)",
+        .onboard_done =>
+            "\xE2\x9C\x85 Konfiguracja zako\xC5\x84czona!"
+                ++ " Wy\xC5\x9Blij opis posi\xC5\x82ku"
+                ++ " lub wpisz /help.",
+
+        // --- settings ---
+        .settings_current =>
+            "\xE2\x9A\x99\xEF\xB8\x8F Ustawienia:"
+                ++ "\nJ\xC4\x99zyk: {s}"
+                ++ "\n\xC5\x9Aledzenie dny: {s}"
+                ++ "\n\xC5\x9Aledzenie GLP-1: {s}"
+                ++ "\n\nU\xC5\xBCyj /start"
+                ++ " aby zmieni\xC4\x87.",
+        .settings_updated =>
+            "\xE2\x9C\x85 Ustawienia zapisane.",
+
+        // --- feature disabled ---
+        .feature_injection_disabled =>
+            "\xC5\x9Aledzenie zastrzyk\xC3\xB3w"
+                ++ " wy\xC5\x82\xC4\x85czone."
+                ++ " U\xC5\xBCyj /start aby"
+                ++ " w\xC5\x82\xC4\x85czy\xC4\x87"
+                ++ " GLP-1.",
     };
 }
