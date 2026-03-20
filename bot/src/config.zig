@@ -1,6 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
-const strings = @import("strings.zig");
+const strings = @import("strings");
 
 pub const Config = struct {
     gemini_api_key: ?[]const u8,

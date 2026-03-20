@@ -1,9 +1,9 @@
 FROM node:22-alpine AS frontend
 
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json* ./
+COPY server/frontend/package.json server/frontend/package-lock.json* ./
 RUN npm install
-COPY frontend/ .
+COPY server/frontend/ .
 RUN npx tsc && npx vite build
 
 FROM alpine:3.21 AS build
@@ -17,10 +17,11 @@ RUN ARCH=$(uname -m) && \
 ENV PATH="/opt:${PATH}"
 
 WORKDIR /app
-COPY deps/ deps/
-COPY build.zig build.zig.zon ./
-COPY embedded_ui.zig ./
-COPY src/ src/
+COPY server/deps/ deps/
+COPY server/build.zig server/build.zig.zon ./
+COPY server/embedded_ui.zig ./
+COPY server/src/ src/
+COPY core/ ../core/
 COPY --from=frontend /app/ui/ ui/
 
 RUN zig build -Doptimize=ReleaseSafe -Dskip-frontend

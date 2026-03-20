@@ -1,8 +1,8 @@
 const std = @import("std");
 const database = @import("db.zig");
-const kinetics = @import("kinetics.zig");
-const strings = @import("strings.zig");
-const strings_notif = @import("strings_notif.zig");
+const kinetics = @import("kinetics");
+const strings = @import("strings");
+const strings_notif = @import("strings_notif");
 
 fn fmtAlert(
     buf: []u8,

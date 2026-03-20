@@ -19,6 +19,10 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("embedded_ui.zig"),
     });
 
+    const kinetics_mod = b.createModule(.{
+        .root_source_file = b.path("../core/kinetics.zig"),
+    });
+
     const exe = b.addExecutable(.{
         .name = "metos-server",
         .root_module = b.createModule(.{
@@ -28,6 +32,7 @@ pub fn build(b: *std.Build) void {
             .imports = &.{
                 .{ .name = "zqlite", .module = zqlite_dep.module("zqlite") },
                 .{ .name = "embedded_ui", .module = embedded_ui_mod },
+                .{ .name = "kinetics", .module = kinetics_mod },
             },
         }),
     });

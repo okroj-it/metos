@@ -1,4 +1,4 @@
-const strings = @import("strings.zig");
+const strings = @import("strings");
 
 pub fn waterTemplates(
     locale: strings.Locale,
