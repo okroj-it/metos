@@ -166,6 +166,8 @@ pub const Key = enum {
 
     // feature disabled
     feature_injection_disabled,
+    off_topic,
+    rate_limited,
 };
 
 pub fn get(locale: Locale, key: Key) []const u8 {
@@ -573,6 +575,15 @@ fn enStr(key: Key) []const u8 {
             "Injection tracking is disabled."
                 ++ " Use /start to enable GLP-1"
                 ++ " tracking.",
+        .off_topic =>
+            "\xF0\x9F\x99\x85 This is a meal"
+                ++ " tracking app, not a chatbot."
+                ++ " Send me a meal description"
+                ++ " and I'll analyze it.",
+        .rate_limited =>
+            "\xE2\x9A\xA0\xEF\xB8\x8F Daily analysis"
+                ++ " limit reached (50/day)."
+                ++ " Try again tomorrow.",
     };
 }
 
@@ -1038,5 +1049,19 @@ fn plStr(key: Key) []const u8 {
                 ++ " U\xC5\xBCyj /start aby"
                 ++ " w\xC5\x82\xC4\x85czy\xC4\x87"
                 ++ " GLP-1.",
+        .off_topic =>
+            "\xF0\x9F\x99\x85 To jest aplikacja"
+                ++ " do \xC5\x9Bledzenia"
+                ++ " posi\xC5\x82k\xC3\xB3w,"
+                ++ " nie chatbot."
+                ++ " Wy\xC5\x9Blij mi opis"
+                ++ " posi\xC5\x82ku,"
+                ++ " a przeanalizuj\xC4\x99"
+                ++ " sk\xC5\x82ad.",
+        .rate_limited =>
+            "\xE2\x9A\xA0\xEF\xB8\x8F Dzienny limit"
+                ++ " analiz osi\xC4\x85gni\xC4\x99ty"
+                ++ " (50/dzie\xC5\x84)."
+                ++ " Spr\xC3\xB3buj jutro.",
     };
 }
