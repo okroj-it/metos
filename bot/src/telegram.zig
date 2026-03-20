@@ -13,6 +13,12 @@ pub const Bot = struct {
         transcript: []const u8,
         edit,
         command: []const u8,
+        onboard_locale,
+        onboard_gout: struct { locale: strings.Locale },
+        onboard_glp1: struct {
+            locale: strings.Locale,
+            gout: bool,
+        },
     };
 
     allocator: std.mem.Allocator,
@@ -22,6 +28,8 @@ pub const Bot = struct {
     bot_token: []const u8,
     owner_id: i64,
     locale: strings.Locale,
+    gout_tracking: bool,
+    glp1_tracking: bool,
     last_update_id: i64,
     pending: PendingAction,
     pending_chat_id: i64,
@@ -39,6 +47,20 @@ pub const Bot = struct {
         const db_inst = try database.Db.open(db_path);
         errdefer db_inst.close();
 
+        var bot_locale = locale;
+        var gout = true;
+        var glp1 = true;
+        if (db_inst.getUserConfig() catch null) |cfg| {
+            if (cfg.onboarded) {
+                bot_locale = std.meta.stringToEnum(
+                    strings.Locale,
+                    cfg.locale,
+                ) orelse locale;
+                gout = cfg.gout_tracking;
+                glp1 = cfg.glp1_tracking;
+            }
+        }
+
         return .{
             .allocator = allocator,
             .io = io,
@@ -46,7 +68,9 @@ pub const Bot = struct {
             .gemini_key = gemini_key,
             .bot_token = bot_token,
             .owner_id = owner_id,
-            .locale = locale,
+            .locale = bot_locale,
+            .gout_tracking = gout,
+            .glp1_tracking = glp1,
             .last_update_id = 0,
             .pending = .none,
             .pending_chat_id = 0,
@@ -82,7 +106,12 @@ pub const Bot = struct {
         switch (self.pending) {
             .transcript => |t| self.allocator.free(t),
             .command => |c| self.allocator.free(c),
-            .none, .edit => {},
+            .none,
+            .edit,
+            .onboard_locale,
+            .onboard_gout,
+            .onboard_glp1,
+            => {},
         }
         self.pending = .none;
     }
@@ -241,10 +270,9 @@ pub const Bot = struct {
         } else if (std.mem.startsWith(u8, text, "/history")) {
             try self.handleHistory(chat_id.integer);
         } else if (std.mem.startsWith(u8, text, "/start")) {
-            try self.sendMessage(
-                chat_id.integer,
-                self.s(.cmd_start),
-            );
+            try self.startOnboarding(chat_id.integer);
+        } else if (std.mem.startsWith(u8, text, "/settings")) {
+            try self.handleSettings(chat_id.integer);
         } else if (std.mem.startsWith(u8, text, "/help")) {
             try self.sendMessage(
                 chat_id.integer,
@@ -258,7 +286,14 @@ pub const Bot = struct {
         } else if (std.mem.startsWith(u8, text, "/goal")) {
             try self.confirmGoal(chat_id.integer, text);
         } else if (std.mem.startsWith(u8, text, "/injection")) {
-            try self.confirmInjection(chat_id.integer, text);
+            if (!self.glp1_tracking) {
+                try self.sendMessage(
+                    chat_id.integer,
+                    self.s(.feature_injection_disabled),
+                );
+            } else {
+                try self.confirmInjection(chat_id.integer, text);
+            }
         } else if (std.mem.startsWith(u8, text, "/undo")) {
             try self.confirmUndo(chat_id.integer);
         } else {
@@ -554,6 +589,7 @@ pub const Bot = struct {
             self.gemini_key,
             meal_text,
             self.locale.llmName(),
+            self.gout_tracking,
         ) catch {
             try self.sendMessage(
                 chat_id,
@@ -603,7 +639,9 @@ pub const Bot = struct {
             );
         }
 
-        const notes_str = if (r.purine_notes.len > 0)
+        const notes_str: []const u8 = if (
+            self.gout_tracking and r.purine_notes.len > 0
+        )
             r.purine_notes
         else
             "";
@@ -619,28 +657,44 @@ pub const Bot = struct {
             "";
 
         var msg_buf: [1024]u8 = undefined;
-        const msg = self.fmt(
-            &msg_buf,
-            .meal_summary,
-            .{
-                r.meal_name,
-                r.calories,
-                r.protein_g,
-                r.carbs_g,
-                r.fat_g,
-                r.fiber_g,
-                r.protein_density,
-                r.purine_level,
-                r.purine_mg,
-                r.purine_confidence,
-                r.water_ml,
-                if (r.gout_warning)
-                    self.s(.gout_warning_line)
-                else
-                    @as([]const u8, ""),
-                notes_str,
-            },
-        ) orelse self.s(.meal_saved_fallback);
+        const msg = if (self.gout_tracking)
+            self.fmt(
+                &msg_buf,
+                .meal_summary,
+                .{
+                    r.meal_name,
+                    r.calories,
+                    r.protein_g,
+                    r.carbs_g,
+                    r.fat_g,
+                    r.fiber_g,
+                    r.protein_density,
+                    r.purine_level,
+                    r.purine_mg,
+                    r.purine_confidence,
+                    r.water_ml,
+                    if (r.gout_warning)
+                        self.s(.gout_warning_line)
+                    else
+                        @as([]const u8, ""),
+                    notes_str,
+                },
+            ) orelse self.s(.meal_saved_fallback)
+        else
+            self.fmt(
+                &msg_buf,
+                .meal_summary_basic,
+                .{
+                    r.meal_name,
+                    r.calories,
+                    r.protein_g,
+                    r.carbs_g,
+                    r.fat_g,
+                    r.fiber_g,
+                    r.protein_density,
+                    r.water_ml,
+                },
+            ) orelse self.s(.meal_saved_fallback);
 
         if (date_note.len > 0) {
             var full_buf: [1100]u8 = undefined;
@@ -952,6 +1006,115 @@ pub const Bot = struct {
         }
     }
 
+    // --- Onboarding & Settings ---
+
+    fn startOnboarding(
+        self: *Bot,
+        chat_id: i64,
+    ) !void {
+        self.clearPending();
+        try self.sendMessage(
+            chat_id,
+            self.s(.onboard_welcome),
+        );
+        self.pending = .onboard_locale;
+        self.pending_chat_id = chat_id;
+        try self.sendWithButtons(
+            chat_id,
+            self.s(.onboard_ask_locale),
+            "English",
+            "locale_en",
+            "Polski",
+            "locale_pl",
+        );
+    }
+
+    fn handleOnboardCallback(
+        self: *Bot,
+        chat_id: i64,
+        data: []const u8,
+    ) !void {
+        switch (self.pending) {
+            .onboard_locale => {
+                const loc: strings.Locale = if (
+                    std.mem.eql(u8, data, "locale_pl")
+                ) .pl else .en;
+                self.locale = loc;
+                self.pending = .{
+                    .onboard_gout = .{ .locale = loc },
+                };
+                try self.sendWithButtons(
+                    chat_id,
+                    strings.get(loc, .onboard_ask_gout),
+                    "\xE2\x9C\x85",
+                    "gout_yes",
+                    "\xE2\x9D\x8C",
+                    "gout_no",
+                );
+            },
+            .onboard_gout => |state| {
+                const gout = std.mem.eql(
+                    u8, data, "gout_yes",
+                );
+                self.pending = .{
+                    .onboard_glp1 = .{
+                        .locale = state.locale,
+                        .gout = gout,
+                    },
+                };
+                try self.sendWithButtons(
+                    chat_id,
+                    strings.get(
+                        state.locale, .onboard_ask_glp1,
+                    ),
+                    "\xE2\x9C\x85",
+                    "glp1_yes",
+                    "\xE2\x9D\x8C",
+                    "glp1_no",
+                );
+            },
+            .onboard_glp1 => |state| {
+                const glp1 = std.mem.eql(
+                    u8, data, "glp1_yes",
+                );
+                self.gout_tracking = state.gout;
+                self.glp1_tracking = glp1;
+                self.locale = state.locale;
+                self.db.saveUserConfig(
+                    state.locale.llmCode(),
+                    state.gout,
+                    glp1,
+                ) catch {};
+                self.clearPending();
+                try self.sendMessage(
+                    chat_id,
+                    self.s(.onboard_done),
+                );
+            },
+            else => {},
+        }
+    }
+
+    fn handleSettings(self: *Bot, chat_id: i64) !void {
+        var buf: [256]u8 = undefined;
+        const msg = self.fmt(
+            &buf,
+            .settings_current,
+            .{
+                self.locale.llmName(),
+                if (self.gout_tracking)
+                    @as([]const u8, "\xE2\x9C\x85")
+                else
+                    @as([]const u8, "\xE2\x9D\x8C"),
+                if (self.glp1_tracking)
+                    @as([]const u8, "\xE2\x9C\x85")
+                else
+                    @as([]const u8, "\xE2\x9D\x8C"),
+            },
+        ) orelse self.s(.settings_updated);
+        try self.sendMessage(chat_id, msg);
+    }
+
     // --- Read-only handlers ---
 
     fn handleStats(
@@ -1003,7 +1166,9 @@ pub const Bot = struct {
         ) catch null;
 
         var pharma_buf: [128]u8 = undefined;
-        const pharma_line = if (inj.len > 0) blk: {
+        const pharma_line = if (
+            self.glp1_tracking and inj.len > 0
+        ) blk: {
             const sup = kinetics.appetiteSuppression(
                 inj.records[0].hours_ago,
             );
@@ -1033,7 +1198,7 @@ pub const Bot = struct {
                 sm.max_purine_level[0..sm.max_purine_len],
                 pharma_line,
                 water,
-                if (sm.day_gout_alert)
+                if (self.gout_tracking and sm.day_gout_alert)
                     self.s(.stats_gout_alert)
                 else
                     @as([]const u8, ""),
@@ -1246,6 +1411,17 @@ pub const Bot = struct {
                 chat_id.integer,
                 self.s(.cancelled),
             );
+        } else if (std.mem.startsWith(
+            u8, data, "locale_",
+        ) or std.mem.startsWith(
+            u8, data, "gout_",
+        ) or std.mem.startsWith(
+            u8, data, "glp1_",
+        )) {
+            try self.handleOnboardCallback(
+                chat_id.integer,
+                data,
+            );
         }
     }
 
@@ -1276,11 +1452,13 @@ pub const Bot = struct {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
-        var buf3: [512]u8 = undefined;
-        if (notif.checkPurine72h(
-            self.db, &today, loc, &buf3,
-        )) |m| {
-            self.sendMessage(self.owner_id, m) catch {};
+        if (self.gout_tracking) {
+            var buf3: [512]u8 = undefined;
+            if (notif.checkPurine72h(
+                self.db, &today, loc, &buf3,
+            )) |m| {
+                self.sendMessage(self.owner_id, m) catch {};
+            }
         }
 
         var buf4: [512]u8 = undefined;
@@ -1290,25 +1468,29 @@ pub const Bot = struct {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
-        var buf5: [512]u8 = undefined;
-        if (notif.checkInjection(
-            self.db, &today, hour, loc, &buf5,
-        )) |m| {
-            self.sendMessage(self.owner_id, m) catch {};
+        if (self.glp1_tracking) {
+            var buf5: [512]u8 = undefined;
+            if (notif.checkInjection(
+                self.db, &today, hour, loc, &buf5,
+            )) |m| {
+                self.sendMessage(self.owner_id, m) catch {};
+            }
+
+            var buf6: [512]u8 = undefined;
+            if (notif.checkForceFeed(
+                self.db, &today, hour, loc, &buf6,
+            )) |m| {
+                self.sendMessage(self.owner_id, m) catch {};
+            }
         }
 
-        var buf6: [512]u8 = undefined;
-        if (notif.checkForceFeed(
-            self.db, &today, hour, loc, &buf6,
-        )) |m| {
-            self.sendMessage(self.owner_id, m) catch {};
-        }
-
-        var buf7: [512]u8 = undefined;
-        if (notif.checkPurineSentry(
-            self.db, &today, hour, loc, &buf7,
-        )) |m| {
-            self.sendMessage(self.owner_id, m) catch {};
+        if (self.gout_tracking) {
+            var buf7: [512]u8 = undefined;
+            if (notif.checkPurineSentry(
+                self.db, &today, hour, loc, &buf7,
+            )) |m| {
+                self.sendMessage(self.owner_id, m) catch {};
+            }
         }
     }
 
@@ -1327,12 +1509,14 @@ pub const Bot = struct {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
-        var buf2: [512]u8 = undefined;
-        if (notif.checkStomachLoad(
-            self.db, date, hour, calories, fat,
-            self.locale, &buf2,
-        )) |m| {
-            self.sendMessage(self.owner_id, m) catch {};
+        if (self.glp1_tracking) {
+            var buf2: [512]u8 = undefined;
+            if (notif.checkStomachLoad(
+                self.db, date, hour, calories, fat,
+                self.locale, &buf2,
+            )) |m| {
+                self.sendMessage(self.owner_id, m) catch {};
+            }
         }
     }
 

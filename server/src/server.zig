@@ -115,7 +115,9 @@ pub const Server = struct {
                 return;
             }
 
-            if (std.mem.startsWith(u8, target, "/api/stats")) {
+            if (std.mem.startsWith(u8, target, "/api/config")) {
+                try self.apiConfig(request);
+            } else if (std.mem.startsWith(u8, target, "/api/stats")) {
                 try self.apiStats(request);
             } else if (std.mem.startsWith(u8, target, "/api/meals")) {
                 try self.apiMeals(request);
@@ -276,6 +278,30 @@ pub const Server = struct {
             if (rest.len >= 10) return rest[0..10];
         }
         return today;
+    }
+
+    fn apiConfig(
+        self: *Server,
+        request: *http.Server.Request,
+    ) !void {
+        const cfg = self.db.getUserConfig() orelse
+            database.UserConfig{
+            .gout_tracking = true,
+            .glp1_tracking = true,
+        };
+        const body = std.json.Stringify.valueAlloc(
+            self.allocator,
+            .{
+                .gout_tracking = cfg.gout_tracking,
+                .glp1_tracking = cfg.glp1_tracking,
+            },
+            .{},
+        ) catch return error.SerializationFailed;
+        defer self.allocator.free(body);
+        try request.respond(
+            body,
+            .{ .extra_headers = json_headers },
+        );
     }
 
     fn apiStats(

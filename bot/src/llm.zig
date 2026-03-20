@@ -90,14 +90,47 @@ const system_prompt =
     \\}
 ;
 
+const system_prompt_basic =
+    \\You are an advanced dietary analysis engine.
+    \\Your only task is to analyze a meal description from the user
+    \\and return ONLY a valid JSON object. Do not add any text,
+    \\preamble, summaries, or Markdown formatting (no ```json).
+    \\
+    \\ANALYSIS RULES:
+    \\1. Portion estimation: If the user does not specify exact weight,
+    \\   assume standard large portions (e.g. "cottage cheese" = 250g,
+    \\   "chicken breast" = 200g, "roll/slice" = one piece).
+    \\2. Macronutrients: Estimate calories (kcal), protein (g),
+    \\   carbohydrates (g), fat (g), and fiber (g).
+    \\3. Protein density: Calculate "protein_density".
+    \\   Formula: (protein_g * 4) / calories. Return as a decimal
+    \\   rounded to two places (e.g. 0.45).
+    \\4. Water ml: Suggested hydration. Base 250ml.
+    \\
+    \\REQUIRED JSON STRUCTURE:
+    \\{
+    \\  "meal_name": "Concise, normalized meal name",
+    \\  "calories": 0,
+    \\  "protein_g": 0,
+    \\  "carbs_g": 0,
+    \\  "fat_g": 0,
+    \\  "fiber_g": 0,
+    \\  "protein_density": 0.00,
+    \\  "water_ml": 250
+    \\}
+;
+
 pub fn analyze(
     allocator: std.mem.Allocator,
     io: Io,
     api_key: []const u8,
     user_text: []const u8,
     locale: []const u8,
+    gout_tracking: bool,
 ) !AnalysisResult {
-    const body = try buildRequestBody(allocator, user_text, locale);
+    const body = try buildRequestBody(
+        allocator, user_text, locale, gout_tracking,
+    );
     defer allocator.free(body);
 
     const response_body = try callGemini(
@@ -357,17 +390,33 @@ fn buildRequestBody(
     allocator: std.mem.Allocator,
     user_text: []const u8,
     locale: []const u8,
+    gout_tracking: bool,
 ) ![]const u8 {
     var prompt_buf: [4096]u8 = undefined;
-    const full_prompt = std.fmt.bufPrint(
-        &prompt_buf,
-        "{s}\n\nOutput the \"meal_name\" and \"purine_notes\""
-            ++ " fields in {s}. All other fields remain in English.",
-        .{ system_prompt, locale },
-    ) catch return error.PromptTooLong;
+    const full_prompt = if (gout_tracking)
+        std.fmt.bufPrint(
+            &prompt_buf,
+            "{s}\n\nOutput the \"meal_name\""
+                ++ " and \"purine_notes\""
+                ++ " fields in {s}."
+                ++ " All other fields"
+                ++ " remain in English.",
+            .{ system_prompt, locale },
+        )
+    else
+        std.fmt.bufPrint(
+            &prompt_buf,
+            "{s}\n\nOutput the \"meal_name\""
+                ++ " field in {s}."
+                ++ " All other fields"
+                ++ " remain in English.",
+            .{ system_prompt_basic, locale },
+        );
+    const prompt = full_prompt catch
+        return error.PromptTooLong;
     return std.json.Stringify.valueAlloc(allocator, .{
         .system_instruction = .{
-            .parts = .{.{ .text = full_prompt }},
+            .parts = .{.{ .text = prompt }},
         },
         .contents = .{.{
             .parts = .{.{ .text = user_text }},

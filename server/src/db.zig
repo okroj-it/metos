@@ -378,6 +378,18 @@ pub const Db = struct {
         try out.appendSlice(allocator, "]");
         return try out.toOwnedSlice(allocator);
     }
+
+    pub fn getUserConfig(self: Db) ?UserConfig {
+        const row = (self.conn.row(
+            \\SELECT gout_tracking, glp1_tracking
+            \\FROM user_config WHERE id = 1
+        , .{}) catch return null) orelse return null;
+        defer row.deinit();
+        return UserConfig{
+            .gout_tracking = row.boolean(0),
+            .glp1_tracking = row.boolean(1),
+        };
+    }
 };
 
 pub const InjectionInfo = struct {
@@ -431,6 +443,11 @@ pub const DailySummary = struct {
     total_fiber_g: f64,
     day_gout_alert: bool,
     max_purine_level: []const u8,
+};
+
+pub const UserConfig = struct {
+    gout_tracking: bool,
+    glp1_tracking: bool,
 };
 
 fn migrate(conn: zqlite.Conn) !void {
@@ -507,6 +524,15 @@ fn migrate(conn: zqlite.Conn) !void {
     conn.execNoArgs(
         \\ALTER TABLE injections ADD COLUMN site TEXT;
     ) catch {};
+    try conn.execNoArgs(
+        \\CREATE TABLE IF NOT EXISTS user_config (
+        \\  id INTEGER PRIMARY KEY CHECK (id = 1),
+        \\  locale TEXT NOT NULL DEFAULT 'en',
+        \\  gout_tracking INTEGER NOT NULL DEFAULT 0,
+        \\  glp1_tracking INTEGER NOT NULL DEFAULT 0,
+        \\  onboarded INTEGER NOT NULL DEFAULT 0
+        \\);
+    );
     try conn.execNoArgs(
         \\CREATE VIEW IF NOT EXISTS daily_summary AS
         \\SELECT

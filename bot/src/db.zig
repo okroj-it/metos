@@ -482,6 +482,40 @@ pub const Db = struct {
         if (old == 0) return null;
         return (latest - old) / old * 100.0;
     }
+
+    pub fn getUserConfig(self: Db) !?UserConfig {
+        const row = (try self.conn.row(
+            \\SELECT locale, gout_tracking,
+            \\  glp1_tracking, onboarded
+            \\FROM user_config WHERE id = 1
+        , .{})) orelse return null;
+        defer row.deinit();
+        return UserConfig{
+            .locale = row.text(0),
+            .gout_tracking = row.boolean(1),
+            .glp1_tracking = row.boolean(2),
+            .onboarded = row.boolean(3),
+        };
+    }
+
+    pub fn saveUserConfig(
+        self: Db,
+        locale: []const u8,
+        gout: bool,
+        glp1: bool,
+    ) !void {
+        try self.conn.exec(
+            \\INSERT INTO user_config
+            \\  (id, locale, gout_tracking,
+            \\   glp1_tracking, onboarded)
+            \\VALUES (1, ?, ?, ?, 1)
+            \\ON CONFLICT(id) DO UPDATE SET
+            \\  locale = excluded.locale,
+            \\  gout_tracking = excluded.gout_tracking,
+            \\  glp1_tracking = excluded.glp1_tracking,
+            \\  onboarded = 1
+        , .{ locale, gout, glp1 });
+    }
 };
 
 pub const Meal = struct {
@@ -531,6 +565,13 @@ pub const RecentSites = struct {
     pub fn get(self: *const RecentSites, i: usize) []const u8 {
         return self.bufs[i][0..self.lens[i]];
     }
+};
+
+pub const UserConfig = struct {
+    locale: []const u8,
+    gout_tracking: bool,
+    glp1_tracking: bool,
+    onboarded: bool,
 };
 
 pub const DailySummary = struct {
@@ -662,5 +703,14 @@ fn migrate(conn: zqlite.Conn) !void {
         \\  MAX(purine_level) AS max_purine_level
         \\FROM meals
         \\GROUP BY meal_date;
+    );
+    try conn.execNoArgs(
+        \\CREATE TABLE IF NOT EXISTS user_config (
+        \\  id INTEGER PRIMARY KEY CHECK (id = 1),
+        \\  locale TEXT NOT NULL DEFAULT 'en',
+        \\  gout_tracking INTEGER NOT NULL DEFAULT 0,
+        \\  glp1_tracking INTEGER NOT NULL DEFAULT 0,
+        \\  onboarded INTEGER NOT NULL DEFAULT 0
+        \\);
     );
 }

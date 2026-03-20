@@ -56,6 +56,15 @@ export interface InjectionData {
   suppression: number;
 }
 
+export interface AppConfig {
+  gout_tracking: boolean;
+  glp1_tracking: boolean;
+}
+
+export function fetchConfig(): Promise<AppConfig> {
+  return fetchJson<AppConfig>("/api/config");
+}
+
 async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
   const headers = new Headers(options?.headers);
   const token = getToken();
