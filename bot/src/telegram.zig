@@ -4,6 +4,8 @@ const database = @import("db.zig");
 const llm = @import("llm.zig");
 const notif = @import("notifications.zig");
 const kinetics = @import("kinetics.zig");
+const strings = @import("strings.zig");
+const strings_notif = @import("strings_notif.zig");
 
 pub const Bot = struct {
     const PendingAction = union(enum) {
@@ -19,6 +21,7 @@ pub const Bot = struct {
     gemini_key: []const u8,
     bot_token: []const u8,
     owner_id: i64,
+    locale: strings.Locale,
     last_update_id: i64,
     pending: PendingAction,
     pending_chat_id: i64,
@@ -31,6 +34,7 @@ pub const Bot = struct {
         gemini_key: []const u8,
         bot_token: []const u8,
         owner_id: i64,
+        locale: strings.Locale,
     ) !Bot {
         const db_inst = try database.Db.open(db_path);
         errdefer db_inst.close();
@@ -42,10 +46,30 @@ pub const Bot = struct {
             .gemini_key = gemini_key,
             .bot_token = bot_token,
             .owner_id = owner_id,
+            .locale = locale,
             .last_update_id = 0,
             .pending = .none,
             .pending_chat_id = 0,
             .last_notif_check = 0,
+        };
+    }
+
+    fn s(self: *const Bot, key: strings.Key) []const u8 {
+        return strings.get(self.locale, key);
+    }
+
+    fn fmt(
+        self: *const Bot,
+        buf: []u8,
+        comptime key: strings.Key,
+        args: anytype,
+    ) ?[]const u8 {
+        return switch (self.locale) {
+            inline else => |loc| std.fmt.bufPrint(
+                buf,
+                comptime strings.get(loc, key),
+                args,
+            ) catch null,
         };
     }
 
@@ -176,8 +200,7 @@ pub const Bot = struct {
         if (user_id.integer != self.owner_id) {
             try self.sendMessage(
                 chat_id.integer,
-                "Nie b\xC4\x99dzie mi\xC4\x99dzy nami"
-                    ++ " interes\xC3\xB3w \xE2\x98\xA0\xEF\xB8\x8F",
+                self.s(.access_denied),
             );
             return;
         }
@@ -190,9 +213,7 @@ pub const Bot = struct {
         const text_val = message.object.get("text") orelse {
             try self.sendMessage(
                 chat_id.integer,
-                "Wy\xC5\x9Blij mi tekst lub"
-                    ++ " wiadomo\xC5\x9B\xC4\x87"
-                    ++ " g\xC5\x82osow\xC4\x85.",
+                self.s(.err_send_text_or_voice),
             );
             return;
         };
@@ -220,44 +241,12 @@ pub const Bot = struct {
         } else if (std.mem.startsWith(u8, text, "/start")) {
             try self.sendMessage(
                 chat_id.integer,
-                "\xE2\x96\x88 MetOS \xE2\x80\x94"
-                    ++ " Metabolic Operating System"
-                    ++ "\n\nWitaj w MetOS."
-                    ++ " Twoja systematyczna droga"
-                    ++ " (\xCE\xBC\xCE\xAD\xCE\xB8"
-                    ++ "\xCE\xBF\xCF\x82)"
-                    ++ " do optymalizacji"
-                    ++ " metabolicznej zaczyna"
-                    ++ " si\xC4\x99 tutaj."
-                    ++ "\n\nWy\xC5\x9Blij tekst lub"
-                    ++ " g\xC5\x82os\xC3\xB3wk\xC4\x99"
-                    ++ " z opisem posi\xC5\x82ku,"
-                    ++ " a MetOS przeanalizuje"
-                    ++ " sk\xC5\x82ad i ryzyko."
-                    ++ "\n\nWpisz /help po"
-                    ++ " list\xC4\x99 komend.",
+                self.s(.cmd_start),
             );
         } else if (std.mem.startsWith(u8, text, "/help")) {
             try self.sendMessage(
                 chat_id.integer,
-                "\xE2\x96\x88 MetOS v0.1-alpha"
-                    ++ "\n\nTekst/g\xC5\x82os ="
-                    ++ " analiza posi\xC5\x82ku"
-                    ++ "\n/weight 95.2 [notatka]"
-                    ++ "\n/water 500 | -200 | reset"
-                    ++ "\n/stats [RRRR-MM-DD]"
-                    ++ "\n/meals [RRRR-MM-DD]"
-                    ++ "\n/history"
-                    ++ "\n/goal 2000 150"
-                    ++ " (kcal/bia\xC5\x82ko)"
-                    ++ "\n/goal | /goal reset"
-                    ++ "\n/injection [dawka]"
-                    ++ " [miejsce] [notatka]"
-                    ++ "\n/undo"
-                    ++ "\n\n\xCE\x9A\xCE\xB1\xCF\x84"
-                    ++ "\xCE\xAC \xCE\x9C\xCE\xAD"
-                    ++ "\xCE\xB8\xCE\xBF\xCE\xB4"
-                    ++ "\xCE\xBF\xCE\xBD",
+                self.s(.cmd_help),
             );
             // Data-modifying — show confirmation
         } else if (std.mem.startsWith(u8, text, "/weight")) {
@@ -287,7 +276,7 @@ pub const Bot = struct {
         if (trimmed.len == 0) {
             try self.sendMessage(
                 chat_id,
-                "U\xC5\xBCycie: /weight 95.2 [notatka]",
+                self.s(.usage_weight),
             );
             return;
         }
@@ -301,7 +290,7 @@ pub const Bot = struct {
         if (weight_end == 0) {
             try self.sendMessage(
                 chat_id,
-                "U\xC5\xBCycie: /weight 95.2 [notatka]",
+                self.s(.usage_weight),
             );
             return;
         }
@@ -312,7 +301,7 @@ pub const Bot = struct {
         ) catch {
             try self.sendMessage(
                 chat_id,
-                "Nieprawid\xC5\x82owa waga.",
+                self.s(.err_invalid_weight),
             );
             return;
         };
@@ -325,23 +314,21 @@ pub const Bot = struct {
 
         var buf: [192]u8 = undefined;
         const msg = if (rest.len > 0)
-            std.fmt.bufPrint(
+            self.fmt(
                 &buf,
-                "\xE2\x9A\x96\xEF\xB8\x8F Zapisa\xC4\x87"
-                    ++ " wag\xC4\x99 {d:.1} kg ({s})?",
+                .confirm_weight,
                 .{ weight, rest },
             )
         else
-            std.fmt.bufPrint(
+            self.fmt(
                 &buf,
-                "\xE2\x9A\x96\xEF\xB8\x8F Zapisa\xC4\x87"
-                    ++ " wag\xC4\x99 {d:.1} kg?",
+                .confirm_weight_no_note,
                 .{weight},
             );
         try self.storePending(chat_id, text);
         try self.sendConfirmButtons(
             chat_id,
-            msg catch "Zapisa\xC4\x87 wag\xC4\x99?",
+            msg orelse self.s(.confirm_weight_fallback),
         );
     }
 
@@ -358,7 +345,7 @@ pub const Bot = struct {
         if (trimmed.len == 0) {
             try self.sendMessage(
                 chat_id,
-                "U\xC5\xBCycie: /water 500 | -200 | reset",
+                self.s(.usage_water),
             );
             return;
         }
@@ -368,8 +355,7 @@ pub const Bot = struct {
             try self.storePending(chat_id, text);
             try self.sendConfirmButtons(
                 chat_id,
-                "\xF0\x9F\x92\xA7 Zresetowa\xC4\x87"
-                    ++ " wod\xC4\x99 na dzi\xC5\x9B?",
+                self.s(.confirm_water_reset),
             );
             return;
         }
@@ -377,29 +363,27 @@ pub const Bot = struct {
         const ml = std.fmt.parseInt(i64, trimmed, 10) catch {
             try self.sendMessage(
                 chat_id,
-                "Nieprawid\xC5\x82owa liczba.",
+                self.s(.err_invalid_number),
             );
             return;
         };
 
         const msg = if (ml < 0)
-            std.fmt.bufPrint(
+            self.fmt(
                 &buf,
-                "\xF0\x9F\x92\xA7 Odj\xC4\x85\xC4\x87"
-                    ++ " {d}ml wody?",
+                .confirm_water_subtract,
                 .{-ml},
             )
         else
-            std.fmt.bufPrint(
+            self.fmt(
                 &buf,
-                "\xF0\x9F\x92\xA7 Doda\xC4\x87"
-                    ++ " {d}ml wody?",
+                .confirm_water_add,
                 .{ml},
             );
         try self.storePending(chat_id, text);
         try self.sendConfirmButtons(
             chat_id,
-            msg catch "Zapisa\xC4\x87 wod\xC4\x99?",
+            msg orelse self.s(.confirm_water_fallback),
         );
     }
 
@@ -423,7 +407,7 @@ pub const Bot = struct {
             try self.storePending(chat_id, text);
             try self.sendConfirmButtons(
                 chat_id,
-                "\xF0\x9F\x8E\xAF Usun\xC4\x85\xC4\x87 cel?",
+                self.s(.confirm_goal_reset),
             );
             return;
         }
@@ -433,8 +417,7 @@ pub const Bot = struct {
         const prot_str = it.next() orelse {
             try self.sendMessage(
                 chat_id,
-                "U\xC5\xBCycie: /goal 2000 150"
-                    ++ " (kcal, bia\xC5\x82ko g)",
+                self.s(.usage_goal),
             );
             return;
         };
@@ -442,30 +425,27 @@ pub const Bot = struct {
         const cal = std.fmt.parseInt(i64, cal_str, 10) catch {
             try self.sendMessage(
                 chat_id,
-                "Nieprawid\xC5\x82owa liczba kalorii.",
+                self.s(.err_invalid_calories),
             );
             return;
         };
         const prot = std.fmt.parseFloat(f64, prot_str) catch {
             try self.sendMessage(
                 chat_id,
-                "Nieprawid\xC5\x82owa ilo\xC5\x9B\xC4\x87"
-                    ++ " bia\xC5\x82ka.",
+                self.s(.err_invalid_protein),
             );
             return;
         };
 
         var buf: [192]u8 = undefined;
-        const msg = std.fmt.bufPrint(
-            &buf,
-            "\xF0\x9F\x8E\xAF Cel: {d} kcal,"
-                ++ " {d:.0}g bia\xC5\x82ka?",
-            .{ cal, prot },
-        );
         try self.storePending(chat_id, text);
         try self.sendConfirmButtons(
             chat_id,
-            msg catch "Ustawi\xC4\x87 cel?",
+            self.fmt(
+                &buf,
+                .confirm_goal,
+                .{ cal, prot },
+            ) orelse self.s(.confirm_goal_fallback),
         );
     }
 
@@ -510,15 +490,13 @@ pub const Bot = struct {
         );
 
         var buf: [256]u8 = undefined;
-        const msg = std.fmt.bufPrint(
-            &buf,
-            "\xF0\x9F\x92\x89 Zapisa\xC4\x87 zastrzyk?"
-                ++ "\n{d:.1}mg, {s}",
-            .{ args.dose_mg, args.site() },
-        );
         try self.sendConfirmButtons(
             chat_id,
-            msg catch "Zapisa\xC4\x87 zastrzyk?",
+            self.fmt(
+                &buf,
+                .confirm_injection,
+                .{ args.dose_mg, args.site() },
+            ) orelse self.s(.confirm_injection_fallback),
         );
     }
 
@@ -526,8 +504,7 @@ pub const Bot = struct {
         try self.storePending(chat_id, "/undo");
         try self.sendConfirmButtons(
             chat_id,
-            "\xF0\x9F\x97\x91 Usun\xC4\x85\xC4\x87"
-                ++ " ostatni posi\xC5\x82ek?",
+            self.s(.confirm_undo),
         );
     }
 
@@ -565,12 +542,11 @@ pub const Bot = struct {
             self.io,
             self.gemini_key,
             text,
-            "Polish",
+            self.locale.llmName(),
         ) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 przeanalizowa\xC4\x87"
-                    ++ " posi\xC5\x82ku. Spr\xC3\xB3buj ponownie.",
+                self.s(.err_meal_analysis_failed),
             );
             return;
         };
@@ -601,8 +577,7 @@ pub const Bot = struct {
         self.db.insertMeal(meal) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 zapisa\xC4\x87"
-                    ++ " posi\xC5\x82ku.",
+                self.s(.err_meal_save_failed),
             );
             return;
         };
@@ -615,16 +590,9 @@ pub const Bot = struct {
             "";
 
         var msg_buf: [1024]u8 = undefined;
-        const msg = std.fmt.bufPrint(
+        const msg = self.fmt(
             &msg_buf,
-            "\xE2\x9C\x85 {s}\n"
-                ++ "{d} kcal | B:{d:.0}g W:{d:.0}g T:{d:.0}g\n"
-                ++ "B\xC5\x82onnik: {d:.0}g | G\xC4\x99sto\xC5\x9B\xC4\x87"
-                ++ " bia\xC5\x82ka: {d:.2}\n"
-                ++ "Puryny: {s} ({d:.0}mg)"
-                ++ " pewno\xC5\x9B\xC4\x87: {s}\n"
-                ++ "Woda: {d}ml\n"
-                ++ "{s}{s}",
+            .meal_summary,
             .{
                 r.meal_name,
                 r.calories,
@@ -638,12 +606,12 @@ pub const Bot = struct {
                 r.purine_confidence,
                 r.water_ml,
                 if (r.gout_warning)
-                    "\xE2\x9A\xA0\xEF\xB8\x8F OSTRZEZENIE DNAWE\n"
+                    self.s(.gout_warning_line)
                 else
-                    "",
+                    @as([]const u8, ""),
                 notes_str,
             },
-        ) catch "Posi\xC5\x82ek zapisany.";
+        ) orelse self.s(.meal_saved_fallback);
 
         try self.sendMessage(chat_id, msg);
     }
@@ -669,7 +637,7 @@ pub const Bot = struct {
         ) catch {
             try self.sendMessage(
                 chat_id,
-                "Nieprawid\xC5\x82owa waga.",
+                self.s(.err_invalid_weight),
             );
             return;
         };
@@ -688,18 +656,17 @@ pub const Bot = struct {
         self.db.insertWeighIn(&today, weight, notes) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 zapisa\xC4\x87"
-                    ++ " wagi.",
+                self.s(.err_weight_save_failed),
             );
             return;
         };
 
         var msg_buf: [128]u8 = undefined;
-        const msg = std.fmt.bufPrint(
+        const msg = self.fmt(
             &msg_buf,
-            "\xE2\x9C\x85 Waga: {d:.1} kg",
+            .ok_weight,
             .{weight},
-        ) catch "Waga zapisana.";
+        ) orelse self.s(.ok_weight_fallback);
         try self.sendMessage(chat_id, msg);
     }
 
@@ -719,15 +686,13 @@ pub const Bot = struct {
             self.db.resetDailyWater(&today) catch {
                 try self.sendMessage(
                     chat_id,
-                    "Nie uda\xC5\x82o si\xC4\x99"
-                        ++ " zresetowa\xC4\x87.",
+                    self.s(.err_water_reset_failed),
                 );
                 return;
             };
             try self.sendMessage(
                 chat_id,
-                "\xE2\x9C\x85 Woda na dzi\xC5\x9B"
-                    ++ " zresetowana.",
+                self.s(.ok_water_reset),
             );
             return;
         }
@@ -735,7 +700,7 @@ pub const Bot = struct {
         const ml = std.fmt.parseInt(i64, trimmed, 10) catch {
             try self.sendMessage(
                 chat_id,
-                "Nieprawid\xC5\x82owa liczba.",
+                self.s(.err_invalid_number),
             );
             return;
         };
@@ -744,7 +709,7 @@ pub const Bot = struct {
             self.db.removeWater(&today, -ml) catch {
                 try self.sendMessage(
                     chat_id,
-                    "Nie uda\xC5\x82o si\xC4\x99 zapisa\xC4\x87.",
+                    self.s(.err_water_save_failed),
                 );
                 return;
             };
@@ -752,7 +717,7 @@ pub const Bot = struct {
             self.db.insertWater(&today, ml) catch {
                 try self.sendMessage(
                     chat_id,
-                    "Nie uda\xC5\x82o si\xC4\x99 zapisa\xC4\x87.",
+                    self.s(.err_water_save_failed),
                 );
                 return;
             };
@@ -760,11 +725,11 @@ pub const Bot = struct {
 
         const total = self.db.getDailyWater(&today) catch 0;
         var msg_buf: [128]u8 = undefined;
-        const msg = std.fmt.bufPrint(
+        const msg = self.fmt(
             &msg_buf,
-            "\xE2\x9C\x85 Woda: {d}ml (dzi\xC5\x9B: {d}ml)",
+            .ok_water,
             .{ ml, total },
-        ) catch "Woda zapisana.";
+        ) orelse self.s(.ok_water_fallback);
         try self.sendMessage(chat_id, msg);
     }
 
@@ -783,14 +748,13 @@ pub const Bot = struct {
             self.db.resetGoal() catch {
                 try self.sendMessage(
                     chat_id,
-                    "Nie uda\xC5\x82o si\xC4\x99"
-                        ++ " zresetowa\xC4\x87 celu.",
+                    self.s(.err_goal_reset_failed),
                 );
                 return;
             };
             try self.sendMessage(
                 chat_id,
-                "\xE2\x9C\x85 Cel usuni\xC4\x99ty.",
+                self.s(.ok_goal_reset),
             );
             return;
         }
@@ -812,22 +776,19 @@ pub const Bot = struct {
         self.db.setGoal(calories, protein) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 zapisa\xC4\x87"
-                    ++ " celu.",
+                self.s(.err_goal_save_failed),
             );
             return;
         };
 
         var msg_buf: [192]u8 = undefined;
-        const msg = std.fmt.bufPrint(
-            &msg_buf,
-            "\xE2\x9C\x85 Cel: {d} kcal,"
-                ++ " {d:.0}g bia\xC5\x82ka",
-            .{ calories, protein },
-        );
         try self.sendMessage(
             chat_id,
-            msg catch "Cel zapisany.",
+            self.fmt(
+                &msg_buf,
+                .ok_goal,
+                .{ calories, protein },
+            ) orelse self.s(.ok_goal_fallback),
         );
     }
 
@@ -836,23 +797,22 @@ pub const Bot = struct {
         const name = self.db.deleteLastMeal(&name_buf) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 usun\xC4\x85\xC4\x87.",
+                self.s(.err_undo_failed),
             );
             return;
         };
         if (name) |n| {
             var msg_buf: [256]u8 = undefined;
-            const msg = std.fmt.bufPrint(
+            const msg = self.fmt(
                 &msg_buf,
-                "\xE2\x9C\x85 Usuni\xC4\x99to: {s}",
+                .ok_undo,
                 .{n},
-            ) catch "Posi\xC5\x82ek usuni\xC4\x99ty.";
+            ) orelse self.s(.ok_undo_fallback);
             try self.sendMessage(chat_id, msg);
         } else {
             try self.sendMessage(
                 chat_id,
-                "Brak posi\xC5\x82k\xC3\xB3w do"
-                    ++ " usuni\xC4\x99cia.",
+                self.s(.no_meals_to_undo),
             );
         }
     }
@@ -886,21 +846,19 @@ pub const Bot = struct {
         ) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99"
-                    ++ " zapisa\xC4\x87 zastrzyku.",
+                self.s(.err_injection_save_failed),
             );
             return;
         };
 
         var msg_buf: [256]u8 = undefined;
-        const msg = std.fmt.bufPrint(
-            &msg_buf,
-            "\xE2\x9C\x85 Zastrzyk: {d:.1}mg, {s}",
-            .{ args.dose_mg, args.site() },
-        );
         try self.sendMessage(
             chat_id,
-            msg catch "Zastrzyk zapisany.",
+            self.fmt(
+                &msg_buf,
+                .ok_injection,
+                .{ args.dose_mg, args.site() },
+            ) orelse self.s(.ok_injection_fallback),
         );
     }
 
@@ -918,29 +876,25 @@ pub const Bot = struct {
         const goal = self.db.getGoal() catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 pobra\xC4\x87"
-                    ++ " celu.",
+                self.s(.err_goal_fetch_failed),
             );
             return;
         };
         if (goal) |g| {
             var msg_buf: [256]u8 = undefined;
-            const msg = std.fmt.bufPrint(
+            const msg = self.fmt(
                 &msg_buf,
-                "\xF0\x9F\x8E\xAF Aktualny cel:\n"
-                    ++ "Kalorie: {d} kcal\n"
-                    ++ "Bia\xC5\x82ko: {d:.0}g",
+                .goal_show,
                 .{
                     g.target_calories orelse 0,
                     g.target_protein_g orelse 0,
                 },
-            ) catch "Cel ustawiony.";
+            ) orelse self.s(.goal_show_fallback);
             try self.sendMessage(chat_id, msg);
         } else {
             try self.sendMessage(
                 chat_id,
-                "Brak celu. U\xC5\xBCycie:"
-                    ++ " /goal 2000 150",
+                self.s(.no_goal),
             );
         }
     }
@@ -966,8 +920,7 @@ pub const Bot = struct {
         const summary = self.db.getDailySummary(date) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 pobra\xC4\x87"
-                    ++ " statystyk.",
+                self.s(.err_stats_fetch_failed),
             );
             return;
         };
@@ -975,12 +928,12 @@ pub const Bot = struct {
         if (summary == null) {
             try self.sendMessage(
                 chat_id,
-                "Brak danych na ten dzie\xC5\x84.",
+                self.s(.stats_no_data),
             );
             return;
         }
 
-        const s = summary.?;
+        const sm = summary.?;
         const hour = getHourCET(self.io);
         const water = self.db.getDailyWater(date) catch 0;
 
@@ -1001,53 +954,38 @@ pub const Bot = struct {
             const sup = kinetics.appetiteSuppression(
                 inj.records[0].hours_ago,
             );
-            break :blk std.fmt.bufPrint(
+            break :blk self.fmt(
                 &pharma_buf,
-                "\n[PHARMA STATUS]"
-                    ++ "\nMounjaro"
-                    ++ " | dz. {d}"
-                    ++ " | t\xC5\x82um. {d:.0}%",
+                .stats_pharma,
                 .{
                     days orelse 0,
                     sup * 100,
                 },
-            ) catch "";
+            ) orelse "";
         } else
-            "";
+            @as([]const u8, "");
 
         var msg_buf: [768]u8 = undefined;
-        const msg = std.fmt.bufPrint(
+        const msg = self.fmt(
             &msg_buf,
-            "\xE2\x96\x88 MetOS [v0.1] \xE2\x80\x94 {s}"
-                ++ "\n\n[METABOLIC LOAD]"
-                ++ "\n{d}\xC3\x97 | {d} kcal"
-                ++ "\nB:{d:.0}g W:{d:.0}g"
-                ++ " T:{d:.0}g B\xC5\x82:{d:.0}g"
-                ++ "\nPuryny: {s}"
-                ++ "{s}"
-                ++ "\n\n[SYSTEM STATUS]"
-                ++ "\n\xF0\x9F\x92\xA7 {d} ml"
-                ++ "\n{s}"
-                ++ "\n\n\xCE\x9A\xCE\xB1\xCF\x84\xCE\xAC"
-                ++ " \xCE\x9C\xCE\xAD\xCE\xB8\xCE\xBF"
-                ++ "\xCE\xB4\xCE\xBF\xCE\xBD",
+            .stats_template,
             .{
                 date,
-                s.meal_count,
-                s.total_calories,
-                s.total_protein_g,
-                s.total_carbs_g,
-                s.total_fat_g,
-                s.total_fiber_g,
-                s.max_purine_level[0..s.max_purine_len],
+                sm.meal_count,
+                sm.total_calories,
+                sm.total_protein_g,
+                sm.total_carbs_g,
+                sm.total_fat_g,
+                sm.total_fiber_g,
+                sm.max_purine_level[0..sm.max_purine_len],
                 pharma_line,
                 water,
-                if (s.day_gout_alert)
-                    "\xE2\x9A\xA0\xEF\xB8\x8F ALERT DNOWY"
+                if (sm.day_gout_alert)
+                    self.s(.stats_gout_alert)
                 else
-                    "",
+                    @as([]const u8, ""),
             },
-        ) catch "MetOS: raport niedost\xC4\x99pny.";
+        ) orelse self.s(.stats_fallback);
 
         try self.sendMessage(chat_id, msg);
     }
@@ -1072,24 +1010,22 @@ pub const Bot = struct {
         const list = self.db.formatMealsList(date, &buf) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 pobra\xC4\x87"
-                    ++ " posi\xC5\x82k\xC3\xB3w.",
+                self.s(.err_meals_fetch_failed),
             );
             return;
         };
         if (list) |l| {
             var msg_buf: [2200]u8 = undefined;
-            const msg = std.fmt.bufPrint(
+            const msg = self.fmt(
                 &msg_buf,
-                "\xF0\x9F\x8D\xBD Posi\xC5\x82ki na {s}:\n{s}",
+                .meals_header,
                 .{ date, l },
-            ) catch l;
+            ) orelse l;
             try self.sendMessage(chat_id, msg);
         } else {
             try self.sendMessage(
                 chat_id,
-                "Brak posi\xC5\x82k\xC3\xB3w na ten"
-                    ++ " dzie\xC5\x84.",
+                self.s(.no_meals),
             );
         }
     }
@@ -1099,23 +1035,22 @@ pub const Bot = struct {
         const list = self.db.formatWeighHistory(&buf) catch {
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 pobra\xC4\x87"
-                    ++ " historii.",
+                self.s(.err_history_fetch_failed),
             );
             return;
         };
         if (list) |l| {
             var msg_buf: [2200]u8 = undefined;
-            const msg = std.fmt.bufPrint(
+            const msg = self.fmt(
                 &msg_buf,
-                "\xF0\x9F\x93\x88 Ostatnie wa\xC5\xBCenia:\n{s}",
+                .history_header,
                 .{l},
-            ) catch l;
+            ) orelse l;
             try self.sendMessage(chat_id, msg);
         } else {
             try self.sendMessage(
                 chat_id,
-                "Brak zapis\xC3\xB3w wa\xC5\xBCenia.",
+                self.s(.no_weigh_ins),
             );
         }
     }
@@ -1133,7 +1068,7 @@ pub const Bot = struct {
 
         try self.sendMessage(
             chat_id,
-            "\xF0\x9F\x8E\x99 Transkrybuj\xC4\x99...",
+            self.s(.voice_transcribing),
         );
 
         const audio = self.downloadTelegramFile(
@@ -1145,8 +1080,7 @@ pub const Bot = struct {
             );
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99 pobra\xC4\x87"
-                    ++ " audio.",
+                self.s(.err_audio_download_failed),
             );
             return;
         };
@@ -1165,8 +1099,7 @@ pub const Bot = struct {
             );
             try self.sendMessage(
                 chat_id,
-                "Nie uda\xC5\x82o si\xC4\x99"
-                    ++ " transkrybowa\xC4\x87 audio.",
+                self.s(.err_transcribe_failed),
             );
             return;
         };
@@ -1176,11 +1109,11 @@ pub const Bot = struct {
         self.pending_chat_id = chat_id;
 
         var msg_buf: [2048]u8 = undefined;
-        const msg = std.fmt.bufPrint(
+        const msg = self.fmt(
             &msg_buf,
-            "\xF0\x9F\x8E\x99 Transkrypcja:\n\n{s}",
+            .voice_transcript_prefix,
             .{result.transcript},
-        ) catch result.transcript;
+        ) orelse result.transcript;
 
         try self.sendVoiceButtons(chat_id, msg);
     }
@@ -1210,7 +1143,7 @@ pub const Bot = struct {
                 const text = self.allocator.dupe(u8, t) catch {
                     try self.sendMessage(
                         chat_id.integer,
-                        "B\xC5\x82\xC4\x85d pami\xC4\x99ci.",
+                        self.s(.err_memory),
                     );
                     return;
                 };
@@ -1220,15 +1153,14 @@ pub const Bot = struct {
             } else {
                 try self.sendMessage(
                     chat_id.integer,
-                    "Brak oczekuj\xC4\x85cej transkrypcji.",
+                    self.s(.no_pending_transcript),
                 );
             }
         } else if (std.mem.eql(u8, data, "edit")) {
             self.pending = .edit;
             try self.sendMessage(
                 chat_id.integer,
-                "\xE2\x9C\x8F\xEF\xB8\x8F Wy\xC5\x9Blij"
-                    ++ " poprawiony tekst:",
+                self.s(.voice_edit_prompt),
             );
         } else if (std.mem.eql(u8, data, "confirm")) {
             if (self.pending == .command) {
@@ -1239,7 +1171,7 @@ pub const Bot = struct {
                 ) catch {
                     try self.sendMessage(
                         chat_id.integer,
-                        "B\xC5\x82\xC4\x85d pami\xC4\x99ci.",
+                        self.s(.err_memory),
                     );
                     return;
                 };
@@ -1252,14 +1184,14 @@ pub const Bot = struct {
             } else {
                 try self.sendMessage(
                     chat_id.integer,
-                    "Brak oczekuj\xC4\x85cej komendy.",
+                    self.s(.no_pending_command),
                 );
             }
         } else if (std.mem.eql(u8, data, "cancel")) {
             self.clearPending();
             try self.sendMessage(
                 chat_id.integer,
-                "Anulowano.",
+                self.s(.cancelled),
             );
         }
     }
@@ -1275,51 +1207,53 @@ pub const Bot = struct {
         const today = getToday(self.io);
         const hour = getHourCET(self.io);
 
+        const loc = self.locale;
+
         var buf: [512]u8 = undefined;
         if (notif.checkWaterReminder(
-            self.db, &today, hour, &buf,
+            self.db, &today, hour, loc, &buf,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
         var buf2: [512]u8 = undefined;
         if (notif.checkProteinDeficit(
-            self.db, &today, hour, &buf2,
+            self.db, &today, hour, loc, &buf2,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
         var buf3: [512]u8 = undefined;
         if (notif.checkPurine72h(
-            self.db, &today, &buf3,
+            self.db, &today, loc, &buf3,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
         var buf4: [512]u8 = undefined;
         if (notif.checkAntiCatabolic(
-            self.db, &today, &buf4,
+            self.db, &today, loc, &buf4,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
         var buf5: [512]u8 = undefined;
         if (notif.checkInjection(
-            self.db, &today, hour, &buf5,
+            self.db, &today, hour, loc, &buf5,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
         var buf6: [512]u8 = undefined;
         if (notif.checkForceFeed(
-            self.db, &today, hour, &buf6,
+            self.db, &today, hour, loc, &buf6,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
         var buf7: [512]u8 = undefined;
         if (notif.checkPurineSentry(
-            self.db, &today, hour, &buf7,
+            self.db, &today, hour, loc, &buf7,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
@@ -1335,14 +1269,15 @@ pub const Bot = struct {
 
         var buf: [512]u8 = undefined;
         if (notif.checkConcreteIndex(
-            self.db, date, &buf,
+            self.db, date, self.locale, &buf,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
 
         var buf2: [512]u8 = undefined;
         if (notif.checkStomachLoad(
-            self.db, date, hour, calories, fat, &buf2,
+            self.db, date, hour, calories, fat,
+            self.locale, &buf2,
         )) |m| {
             self.sendMessage(self.owner_id, m) catch {};
         }
@@ -1430,9 +1365,9 @@ pub const Bot = struct {
         try self.sendWithButtons(
             chat_id,
             text,
-            "\xE2\x9C\x85 Tak",
+            self.s(.btn_yes),
             "confirm",
-            "\xE2\x9D\x8C Nie",
+            self.s(.btn_no),
             "cancel",
         );
     }
@@ -1445,9 +1380,9 @@ pub const Bot = struct {
         try self.sendWithButtons(
             chat_id,
             text,
-            "\xE2\x9C\x85 Zatwierd\xC5\xBA",
+            self.s(.btn_approve),
             "approve",
-            "\xE2\x9C\x8F\xEF\xB8\x8F Edytuj",
+            self.s(.btn_edit),
             "edit",
         );
     }

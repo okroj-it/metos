@@ -33,6 +33,7 @@ pub fn main(init: std.process.Init) !void {
         api_key,
         bot_token,
         owner_id,
+        cfg.locale,
     );
     defer bot.deinit();
 

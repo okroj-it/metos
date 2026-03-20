@@ -1,5 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
+const strings = @import("strings.zig");
 
 pub const Config = struct {
     gemini_api_key: ?[]const u8,
@@ -7,6 +8,7 @@ pub const Config = struct {
     db_path: [*:0]const u8,
     owner_id: ?i64,
     port: ?u16,
+    locale: strings.Locale,
 };
 
 pub fn load(
@@ -28,6 +30,7 @@ pub fn load(
     var db_path: ?[]const u8 = null;
     var owner_id_str: ?[]const u8 = null;
     var port_str: ?[]const u8 = null;
+    var locale_str: ?[]const u8 = null;
 
     var lines = std.mem.splitScalar(u8, content, '\n');
     while (lines.next()) |line| {
@@ -58,6 +61,8 @@ pub fn load(
             owner_id_str = val;
         } else if (std.mem.eql(u8, key, "port")) {
             port_str = val;
+        } else if (std.mem.eql(u8, key, "locale")) {
+            locale_str = val;
         }
     }
 
@@ -82,6 +87,10 @@ pub fn load(
             std.fmt.parseInt(u16, p, 10) catch null
         else
             null,
+        .locale = if (locale_str) |l|
+            std.meta.stringToEnum(strings.Locale, l) orelse .en
+        else
+            .en,
     };
 }
 
