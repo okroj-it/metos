@@ -15,6 +15,8 @@ pub fn build(b: *std.Build) void {
         .{ "llm", "llm.zig" },
         .{ "strings", "strings.zig" },
         .{ "strings_notif", "strings_notif.zig" },
+        .{ "commands", "commands.zig" },
+        .{ "notifications", "notifications.zig" },
     };
 
     var imports: [core_mods.len + 1]std.Build.Module.Import = undefined;
@@ -32,10 +34,29 @@ pub fn build(b: *std.Build) void {
             }),
         };
     }
+    // Cross-module dependencies within core
     // strings_notif depends on strings
     imports[4].module.addImport(
         "strings",
         imports[3].module,
+    );
+    // commands depends on kinetics
+    imports[5].module.addImport(
+        "kinetics",
+        imports[1].module,
+    );
+    // notifications depends on kinetics, strings, strings_notif
+    imports[6].module.addImport(
+        "kinetics",
+        imports[1].module,
+    );
+    imports[6].module.addImport(
+        "strings",
+        imports[3].module,
+    );
+    imports[6].module.addImport(
+        "strings_notif",
+        imports[4].module,
     );
 
     const exe = b.addExecutable(.{

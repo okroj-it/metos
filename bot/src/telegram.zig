@@ -6,6 +6,7 @@ const notif = @import("notifications.zig");
 const kinetics = @import("kinetics");
 const strings = @import("strings");
 const strings_notif = @import("strings_notif");
+const commands = @import("commands");
 
 pub const Bot = struct {
     const PendingAction = union(enum) {
@@ -318,7 +319,7 @@ pub const Bot = struct {
             return;
         }
 
-        const dp = parseDatePrefix(trimmed);
+        const dp = commands.parseDatePrefix(trimmed);
         const arg = if (dp.date != null) dp.rest else trimmed;
 
         var weight_end: usize = 0;
@@ -390,7 +391,7 @@ pub const Bot = struct {
             return;
         }
 
-        const dp = parseDatePrefix(trimmed);
+        const dp = commands.parseDatePrefix(trimmed);
         const arg = if (dp.date != null) dp.rest else trimmed;
 
         var buf: [128]u8 = undefined;
@@ -504,7 +505,7 @@ pub const Bot = struct {
         const trimmed = std.mem.trimStart(u8, after_cmd, " ");
         const last_dose = self.db.getLastDose() catch 2.5;
         const suggested = self.getSuggestedSite();
-        const args = parseInjectionText(
+        const args = commands.parseInjectionText(
             trimmed,
             last_dose,
             suggested,
@@ -580,7 +581,7 @@ pub const Bot = struct {
         chat_id: i64,
         text: []const u8,
     ) !void {
-        const dp = parseDatePrefix(text);
+        const dp = commands.parseDatePrefix(text);
         const meal_text = dp.rest;
 
         var today_buf = getToday(self.io);
@@ -737,7 +738,7 @@ pub const Bot = struct {
     ) !void {
         const after_cmd = text[7..];
         const trimmed = std.mem.trimStart(u8, after_cmd, " ");
-        const dp = parseDatePrefix(trimmed);
+        const dp = commands.parseDatePrefix(trimmed);
         const arg = if (dp.date != null) dp.rest else trimmed;
 
         var weight_end: usize = 0;
@@ -801,7 +802,7 @@ pub const Bot = struct {
         else
             "";
         const trimmed = std.mem.trimStart(u8, after_cmd, " ");
-        const dp = parseDatePrefix(trimmed);
+        const dp = commands.parseDatePrefix(trimmed);
         const arg = if (dp.date != null) dp.rest else trimmed;
 
         var today_buf = getToday(self.io);
@@ -955,7 +956,7 @@ pub const Bot = struct {
         else
             "";
         const trimmed = std.mem.trimStart(u8, after_cmd, " ");
-        const args = parseInjectionText(
+        const args = commands.parseInjectionText(
             trimmed,
             2.5,
             kinetics.injection_sites[0],
@@ -2042,106 +2043,4 @@ fn getHourCET(io: Io) u8 {
     const cet = secs + 3600; // UTC+1
     const day_secs = cet % 86400;
     return @intCast(day_secs / 3600);
-}
-
-const InjectionArgs = struct {
-    dose_mg: f64,
-    site_buf: [16]u8,
-    site_len: usize,
-    notes_start: usize,
-    has_notes: bool,
-
-    fn site(self: *const InjectionArgs) []const u8 {
-        return self.site_buf[0..self.site_len];
-    }
-};
-
-fn parseInjectionText(
-    text: []const u8,
-    default_dose: f64,
-    default_site: []const u8,
-) InjectionArgs {
-    var result = InjectionArgs{
-        .dose_mg = default_dose,
-        .site_buf = undefined,
-        .site_len = @min(default_site.len, 16),
-        .notes_start = 0,
-        .has_notes = false,
-    };
-    @memcpy(
-        result.site_buf[0..result.site_len],
-        default_site[0..result.site_len],
-    );
-    if (text.len == 0) return result;
-
-    var pos: usize = 0;
-
-    // Try parsing dose number (e.g. "2.5", "5", "7.5")
-    var num_end: usize = 0;
-    for (text[pos..], 0..) |c, i| {
-        if ((c >= '0' and c <= '9') or c == '.') {
-            num_end = pos + i + 1;
-        } else break;
-    }
-    if (num_end > pos) {
-        if (std.fmt.parseFloat(f64, text[pos..num_end])) |v| {
-            result.dose_mg = v;
-            pos = num_end;
-            while (pos < text.len and text[pos] == ' ')
-                pos += 1;
-        } else |_| {}
-    }
-
-    // Try matching a known injection site
-    for (kinetics.injection_sites) |known| {
-        if (pos + known.len <= text.len and
-            std.mem.eql(u8, text[pos .. pos + known.len], known))
-        {
-            result.site_len = known.len;
-            @memcpy(
-                result.site_buf[0..known.len],
-                known,
-            );
-            pos += known.len;
-            while (pos < text.len and text[pos] == ' ')
-                pos += 1;
-            break;
-        }
-    }
-
-    if (pos < text.len) {
-        result.notes_start = pos;
-        result.has_notes = true;
-    }
-    return result;
-}
-
-const DatePrefix = struct {
-    date: ?[]const u8,
-    rest: []const u8,
-};
-
-fn parseDatePrefix(text: []const u8) DatePrefix {
-    // Match YYYY-MM-DD at start (exactly 10 chars)
-    if (text.len < 10) return .{ .date = null, .rest = text };
-
-    const candidate = text[0..10];
-    if (candidate[4] != '-' or candidate[7] != '-')
-        return .{ .date = null, .rest = text };
-
-    for (candidate, 0..) |c, i| {
-        if (i == 4 or i == 7) continue;
-        if (c < '0' or c > '9')
-            return .{ .date = null, .rest = text };
-    }
-
-    const rest = if (text.len > 10)
-        std.mem.trimStart(u8, text[10..], " ")
-    else
-        "";
-
-    if (rest.len == 0)
-        return .{ .date = null, .rest = text };
-
-    return .{ .date = candidate, .rest = rest };
 }
