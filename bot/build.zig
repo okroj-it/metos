@@ -9,15 +9,42 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const core_path = "../core/";
+    const core_mods = .{
+        .{ "kinetics", "kinetics.zig" },
+        .{ "llm", "llm.zig" },
+        .{ "strings", "strings.zig" },
+        .{ "strings_notif", "strings_notif.zig" },
+    };
+
+    var imports: [core_mods.len + 1]std.Build.Module.Import = undefined;
+    imports[0] = .{
+        .name = "zqlite",
+        .module = zqlite_dep.module("zqlite"),
+    };
+    inline for (core_mods, 0..) |entry, i| {
+        imports[i + 1] = .{
+            .name = entry[0],
+            .module = b.createModule(.{
+                .root_source_file = b.path(
+                    core_path ++ entry[1],
+                ),
+            }),
+        };
+    }
+    // strings_notif depends on strings
+    imports[4].module.addImport(
+        "strings",
+        imports[3].module,
+    );
+
     const exe = b.addExecutable(.{
         .name = "metos-bot",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{
-                .{ .name = "zqlite", .module = zqlite_dep.module("zqlite") },
-            },
+            .imports = &imports,
         }),
     });
     b.installArtifact(exe);

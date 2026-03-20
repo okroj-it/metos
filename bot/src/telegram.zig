@@ -1,11 +1,11 @@
 const std = @import("std");
 const Io = std.Io;
 const database = @import("db.zig");
-const llm = @import("llm.zig");
+const llm = @import("llm");
 const notif = @import("notifications.zig");
-const kinetics = @import("kinetics.zig");
-const strings = @import("strings.zig");
-const strings_notif = @import("strings_notif.zig");
+const kinetics = @import("kinetics");
+const strings = @import("strings");
+const strings_notif = @import("strings_notif");
 
 pub const Bot = struct {
     const PendingAction = union(enum) {

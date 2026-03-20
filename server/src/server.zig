@@ -3,7 +3,7 @@ const http = std.http;
 const net = std.Io.net;
 const Io = std.Io;
 const database = @import("db.zig");
-const kinetics = @import("kinetics.zig");
+const kinetics = @import("kinetics");
 const embedded_ui = @import("embedded_ui");
 const Auth = @import("auth.zig").Auth;
 

@@ -9,9 +9,10 @@ RUN ARCH=$(uname -m) && \
 ENV PATH="/opt:${PATH}"
 
 WORKDIR /app
-COPY deps/ deps/
-COPY build.zig build.zig.zon ./
-COPY src/ src/
+COPY bot/deps/ deps/
+COPY bot/build.zig bot/build.zig.zon ./
+COPY bot/src/ src/
+COPY core/ ../core/
 
 RUN zig build -Doptimize=ReleaseSafe
 
