@@ -2,77 +2,7 @@ const std = @import("std");
 const database = @import("db.zig");
 const kinetics = @import("kinetics");
 const strings = @import("strings");
-const strings_notif = @import("strings_notif");
-
-fn fmtAlert(
-    buf: []u8,
-    comptime key: strings.Key,
-    locale: strings.Locale,
-    args: anytype,
-) ?[]const u8 {
-    return switch (locale) {
-        inline else => |loc| std.fmt.bufPrint(
-            buf,
-            comptime strings.get(loc, key),
-            args,
-        ) catch null,
-    };
-}
-
-// --- Template variable replacement ---
-
-const Var = struct { name: []const u8, value: []const u8 };
-
-fn replaceTemplate(
-    tmpl: []const u8,
-    vars: []const Var,
-    buf: []u8,
-) ?[]const u8 {
-    var pos: usize = 0;
-    var i: usize = 0;
-    while (i < tmpl.len) {
-        if (tmpl[i] == '{') {
-            var matched = false;
-            for (vars) |v| {
-                const end = i + 1 + v.name.len;
-                if (end < tmpl.len and
-                    tmpl[end] == '}' and
-                    std.mem.eql(
-                    u8,
-                    tmpl[i + 1 .. end],
-                    v.name,
-                ))
-                {
-                    if (pos + v.value.len > buf.len)
-                        return null;
-                    @memcpy(
-                        buf[pos .. pos + v.value.len],
-                        v.value,
-                    );
-                    pos += v.value.len;
-                    i = end + 1;
-                    matched = true;
-                    break;
-                }
-            }
-            if (matched) continue;
-        }
-        if (pos >= buf.len) return null;
-        buf[pos] = tmpl[i];
-        pos += 1;
-        i += 1;
-    }
-    return buf[0..pos];
-}
-
-const shake_flavors = [_][]const u8{
-    "Kaktus",
-    "Yummy Classic Rhubarb",
-    "Jackfruit",
-    "Milky Way",
-};
-
-// --- Check functions ---
+const core = @import("notifications");
 
 pub fn checkWaterReminder(
     db: database.Db,
@@ -81,7 +11,6 @@ pub fn checkWaterReminder(
     locale: strings.Locale,
     buf: []u8,
 ) ?[]const u8 {
-    if (hour < 10 or hour > 21) return null;
     const key: []const u8 = if (hour < 15)
         "water_am"
     else
@@ -91,56 +20,25 @@ pub fn checkWaterReminder(
 
     const drunk = db.getDailyWater(date) catch
         return null;
-    const threshold: i64 = if (hour < 15) 1000 else 1500;
-    if (drunk >= threshold) return null;
-
     const goal = db.getGoal() catch null;
-    const base: i64 = if (goal) |g|
+    const target: i64 = if (goal) |g|
         g.target_water_ml orelse 3000
     else
         3000;
-    const left = @max(base - drunk, 0);
 
-    db.markAlertSent(key, date) catch {};
-    const templates = strings_notif.waterTemplates(locale);
     const idx = db.pickMsgIndex("water", 15) catch
         return null;
-    if (idx >= templates.len) return null;
 
-    var hour_buf: [8]u8 = undefined;
-    const hour_str = std.fmt.bufPrint(
-        &hour_buf,
-        "{d}:00",
-        .{hour},
-    ) catch return null;
-    var drunk_buf: [16]u8 = undefined;
-    const drunk_str = std.fmt.bufPrint(
-        &drunk_buf,
-        "{d}",
-        .{drunk},
-    ) catch return null;
-    var left_buf: [16]u8 = undefined;
-    const left_str = std.fmt.bufPrint(
-        &left_buf,
-        "{d}",
-        .{left},
-    ) catch return null;
-
-    return replaceTemplate(
-        templates[idx],
-        &[_]Var{
-            .{ .name = "time", .value = hour_str },
-            .{
-                .name = "water_drank",
-                .value = drunk_str,
-            },
-            .{
-                .name = "water_left",
-                .value = left_str,
-            },
-        },
+    const msg = core.formatWaterReminder(
+        hour,
+        .{ .drunk = drunk, .target = target },
+        idx,
+        locale,
         buf,
-    );
+    ) orelse return null;
+
+    db.markAlertSent(key, date) catch {};
+    return msg;
 }
 
 pub fn checkProteinDeficit(
@@ -154,8 +52,7 @@ pub fn checkProteinDeficit(
     if (db.isAlertSentToday(
         "protein_deficit",
         date,
-    ) catch false)
-        return null;
+    ) catch false) return null;
 
     const goal = (db.getGoal() catch return null)
         orelse return null;
@@ -163,44 +60,20 @@ pub fn checkProteinDeficit(
         return null;
     const current = db.getDailyProteinTotal(date) catch
         return null;
-    const missing = target - current;
-    if (missing < 30) return null;
 
-    db.markAlertSent("protein_deficit", date) catch {};
-    const templates = strings_notif.proteinTemplates(
-        locale,
-    );
     const idx = db.pickMsgIndex("protein", 15) catch
         return null;
-    if (idx >= templates.len) return null;
 
-    const day = std.fmt.parseInt(
-        usize,
-        date[8..10],
-        10,
-    ) catch 1;
-    const flavor = shake_flavors[
-        (idx + day) % shake_flavors.len
-    ];
-
-    var miss_buf: [16]u8 = undefined;
-    const miss_str = std.fmt.bufPrint(
-        &miss_buf,
-        "{d:.0}",
-        .{missing},
-    ) catch return null;
-
-    return replaceTemplate(
-        templates[idx],
-        &[_]Var{
-            .{
-                .name = "missing_protein",
-                .value = miss_str,
-            },
-            .{ .name = "flavor", .value = flavor },
-        },
+    const msg = core.formatProteinDeficit(
+        date,
+        .{ .target = target, .current = current },
+        idx,
+        locale,
         buf,
-    );
+    ) orelse return null;
+
+    db.markAlertSent("protein_deficit", date) catch {};
+    return msg;
 }
 
 pub fn checkConcreteIndex(
@@ -214,41 +87,18 @@ pub fn checkConcreteIndex(
 
     const fiber = db.getDailyFiberTotal(date) catch
         return null;
-    if (fiber < 30) return null;
-
     const water = db.getDailyWater(date) catch
         return null;
-    if (water >= 1500) return null;
 
-    db.markAlertSent("concrete", date) catch {};
-    const templates = strings_notif.concreteTemplates(
-        locale,
-    );
     const idx = db.pickMsgIndex("concrete", 15) catch
         return null;
-    if (idx >= templates.len) return null;
 
-    var fiber_buf: [16]u8 = undefined;
-    const fiber_str = std.fmt.bufPrint(
-        &fiber_buf,
-        "{d:.0}",
-        .{fiber},
-    ) catch return null;
-    var water_buf: [16]u8 = undefined;
-    const water_str = std.fmt.bufPrint(
-        &water_buf,
-        "{d}",
-        .{water},
-    ) catch return null;
+    const msg = core.formatConcreteIndex(
+        fiber, water, idx, locale, buf,
+    ) orelse return null;
 
-    return replaceTemplate(
-        templates[idx],
-        &[_]Var{
-            .{ .name = "fiber", .value = fiber_str },
-            .{ .name = "water", .value = water_str },
-        },
-        buf,
-    );
+    db.markAlertSent("concrete", date) catch {};
+    return msg;
 }
 
 pub fn checkStomachLoad(
@@ -260,18 +110,17 @@ pub fn checkStomachLoad(
     locale: strings.Locale,
     buf: []u8,
 ) ?[]const u8 {
-    if (hour < 20) return null;
-    if (calories < 500 and fat < 20) return null;
     if (db.isAlertSentToday(
         "stomach_load",
         date,
     ) catch false) return null;
 
+    const msg = core.formatStomachLoad(
+        hour, calories, fat, locale, buf,
+    ) orelse return null;
+
     db.markAlertSent("stomach_load", date) catch {};
-    return fmtAlert(
-        buf, .alert_stomach_load, locale,
-        .{ calories, fat },
-    );
+    return msg;
 }
 
 pub fn checkPurine72h(
@@ -287,13 +136,13 @@ pub fn checkPurine72h(
 
     const high_days = db.countHighPurineDays(date) catch
         return null;
-    if (high_days < 2) return null;
+
+    const msg = core.formatPurine72h(
+        high_days, locale, buf,
+    ) orelse return null;
 
     db.markAlertSent("purine_72h", date) catch {};
-    return fmtAlert(
-        buf, .alert_purine_72h, locale,
-        .{high_days},
-    );
+    return msg;
 }
 
 pub fn checkAntiCatabolic(
@@ -309,13 +158,13 @@ pub fn checkAntiCatabolic(
 
     const pct = (db.getWeeklyWeightChange(date) catch
         return null) orelse return null;
-    if (pct > -1.5) return null;
+
+    const msg = core.formatAntiCatabolic(
+        pct, locale, buf,
+    ) orelse return null;
 
     db.markAlertSent("anti_catabolic", date) catch {};
-    return fmtAlert(
-        buf, .alert_anti_catabolic, locale,
-        .{pct},
-    );
+    return msg;
 }
 
 pub fn checkForceFeed(
@@ -325,7 +174,6 @@ pub fn checkForceFeed(
     locale: strings.Locale,
     buf: []u8,
 ) ?[]const u8 {
-    if (hour < 12 or hour > 20) return null;
     if (db.isAlertSentToday("force_feed", date) catch false)
         return null;
 
@@ -337,21 +185,21 @@ pub fn checkForceFeed(
     const suppression = kinetics.appetiteSuppression(
         inj.records[0].hours_ago,
     );
-    if (suppression <= 0.8) return null;
 
     const goal = (db.getGoal() catch return null)
         orelse return null;
-    const target = goal.target_protein_g orelse return null;
+    const target = goal.target_protein_g orelse
+        return null;
     const current = db.getDailyProteinTotal(date) catch
         return null;
-    const hour_f: f64 = @floatFromInt(hour);
-    if (current >= target * hour_f / 24.0) return null;
+
+    const msg = core.formatForceFeed(
+        hour, suppression, target, current,
+        locale, buf,
+    ) orelse return null;
 
     db.markAlertSent("force_feed", date) catch {};
-    return fmtAlert(
-        buf, .alert_force_feed, locale,
-        .{suppression * 100},
-    );
+    return msg;
 }
 
 pub fn checkPurineSentry(
@@ -361,7 +209,6 @@ pub fn checkPurineSentry(
     locale: strings.Locale,
     buf: []u8,
 ) ?[]const u8 {
-    if (hour < 10 or hour > 20) return null;
     if (db.isAlertSentToday("purine_sentry", date) catch false)
         return null;
 
@@ -373,13 +220,13 @@ pub fn checkPurineSentry(
     const suppression = kinetics.appetiteSuppression(
         inj.records[0].hours_ago,
     );
-    if (suppression >= 0.4) return null;
+
+    const msg = core.formatPurineSentry(
+        hour, suppression, locale, buf,
+    ) orelse return null;
 
     db.markAlertSent("purine_sentry", date) catch {};
-    return fmtAlert(
-        buf, .alert_purine_sentry, locale,
-        .{suppression * 100},
-    );
+    return msg;
 }
 
 pub fn checkInjection(
@@ -389,8 +236,6 @@ pub fn checkInjection(
     locale: strings.Locale,
     buf: []u8,
 ) ?[]const u8 {
-    if (hour < 8 or hour > 10) return null;
-
     const days = (db.daysSinceInjection(date) catch
         return null) orelse return null;
 
@@ -399,39 +244,30 @@ pub fn checkInjection(
             "injection_due",
             date,
         ) catch false) return null;
+
+        const msg = core.formatInjectionPhase(
+            hour, days, locale, buf,
+        ) orelse return null;
+
         db.markAlertSent(
             "injection_due",
             date,
         ) catch {};
-        return fmtAlert(
-            buf, .alert_injection_due, locale,
-            .{days},
-        );
+        return msg;
     }
 
     if (db.isAlertSentToday(
         "injection_phase",
         date,
     ) catch false) return null;
+
+    const msg = core.formatInjectionPhase(
+        hour, days, locale, buf,
+    ) orelse return null;
+
     db.markAlertSent(
         "injection_phase",
         date,
     ) catch {};
-
-    if (days <= 2) {
-        return fmtAlert(
-            buf, .alert_injection_phase_early, locale,
-            .{days},
-        );
-    } else if (days <= 5) {
-        return fmtAlert(
-            buf, .alert_injection_phase_peak, locale,
-            .{days},
-        );
-    } else {
-        return fmtAlert(
-            buf, .alert_injection_phase_late, locale,
-            .{days},
-        );
-    }
+    return msg;
 }
