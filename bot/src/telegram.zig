@@ -352,8 +352,11 @@ pub const Bot = struct {
             return;
         }
 
+        const dp = parseDatePrefix(trimmed);
+        const arg = if (dp.date != null) dp.rest else trimmed;
+
         var buf: [128]u8 = undefined;
-        if (std.mem.eql(u8, trimmed, "reset")) {
+        if (std.mem.eql(u8, arg, "reset")) {
             try self.storePending(chat_id, text);
             try self.sendConfirmButtons(
                 chat_id,
@@ -362,7 +365,7 @@ pub const Bot = struct {
             return;
         }
 
-        const ml = std.fmt.parseInt(i64, trimmed, 10) catch {
+        const ml = std.fmt.parseInt(i64, arg, 10) catch {
             try self.sendMessage(
                 chat_id,
                 self.s(.err_invalid_number),
@@ -713,10 +716,17 @@ pub const Bot = struct {
         else
             "";
         const trimmed = std.mem.trimStart(u8, after_cmd, " ");
-        const today = getToday(self.io);
+        const dp = parseDatePrefix(trimmed);
+        const arg = if (dp.date != null) dp.rest else trimmed;
 
-        if (std.mem.eql(u8, trimmed, "reset")) {
-            self.db.resetDailyWater(&today) catch {
+        var today_buf = getToday(self.io);
+        const date: []const u8 = if (dp.date) |d|
+            d
+        else
+            &today_buf;
+
+        if (std.mem.eql(u8, arg, "reset")) {
+            self.db.resetDailyWater(date) catch {
                 try self.sendMessage(
                     chat_id,
                     self.s(.err_water_reset_failed),
@@ -730,7 +740,7 @@ pub const Bot = struct {
             return;
         }
 
-        const ml = std.fmt.parseInt(i64, trimmed, 10) catch {
+        const ml = std.fmt.parseInt(i64, arg, 10) catch {
             try self.sendMessage(
                 chat_id,
                 self.s(.err_invalid_number),
@@ -739,7 +749,7 @@ pub const Bot = struct {
         };
 
         if (ml < 0) {
-            self.db.removeWater(&today, -ml) catch {
+            self.db.removeWater(date, -ml) catch {
                 try self.sendMessage(
                     chat_id,
                     self.s(.err_water_save_failed),
@@ -747,7 +757,7 @@ pub const Bot = struct {
                 return;
             };
         } else {
-            self.db.insertWater(&today, ml) catch {
+            self.db.insertWater(date, ml) catch {
                 try self.sendMessage(
                     chat_id,
                     self.s(.err_water_save_failed),
@@ -756,7 +766,7 @@ pub const Bot = struct {
             };
         }
 
-        const total = self.db.getDailyWater(&today) catch 0;
+        const total = self.db.getDailyWater(date) catch 0;
         var msg_buf: [128]u8 = undefined;
         const msg = self.fmt(
             &msg_buf,
