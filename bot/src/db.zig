@@ -498,6 +498,30 @@ pub const Db = struct {
         };
     }
 
+    pub fn getLlmCallCount(
+        self: Db,
+        date: []const u8,
+    ) !i64 {
+        const row = (try self.conn.row(
+            \\SELECT count FROM llm_usage
+            \\WHERE usage_date = ?
+        , .{date})) orelse return 0;
+        defer row.deinit();
+        return row.int(0);
+    }
+
+    pub fn incrementLlmCalls(
+        self: Db,
+        date: []const u8,
+    ) !void {
+        try self.conn.exec(
+            \\INSERT INTO llm_usage (usage_date, count)
+            \\VALUES (?, 1)
+            \\ON CONFLICT(usage_date) DO UPDATE
+            \\SET count = count + 1
+        , .{date});
+    }
+
     pub fn saveUserConfig(
         self: Db,
         locale: []const u8,
@@ -703,6 +727,12 @@ fn migrate(conn: zqlite.Conn) !void {
         \\  MAX(purine_level) AS max_purine_level
         \\FROM meals
         \\GROUP BY meal_date;
+    );
+    try conn.execNoArgs(
+        \\CREATE TABLE IF NOT EXISTS llm_usage (
+        \\  usage_date TEXT PRIMARY KEY,
+        \\  count INTEGER NOT NULL DEFAULT 0
+        \\);
     );
     try conn.execNoArgs(
         \\CREATE TABLE IF NOT EXISTS user_config (

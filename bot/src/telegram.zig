@@ -583,6 +583,20 @@ pub const Bot = struct {
         const dp = parseDatePrefix(text);
         const meal_text = dp.rest;
 
+        var today_buf = getToday(self.io);
+        const calls = self.db.getLlmCallCount(
+            &today_buf,
+        ) catch 0;
+        if (calls >= 50) {
+            try self.sendMessage(
+                chat_id,
+                self.s(.rate_limited),
+            );
+            return;
+        }
+
+        self.db.incrementLlmCalls(&today_buf) catch {};
+
         var result = llm.analyze(
             self.allocator,
             self.io,
@@ -599,7 +613,14 @@ pub const Bot = struct {
         };
         defer result.deinit(self.allocator);
 
-        var today_buf = getToday(self.io);
+        if (result.parsed.isOffTopic()) {
+            try self.sendMessage(
+                chat_id,
+                self.s(.off_topic),
+            );
+            return;
+        }
+
         const date: []const u8 = if (dp.date) |d|
             d
         else
@@ -1322,6 +1343,20 @@ pub const Bot = struct {
         chat_id: i64,
         voice: std.json.Value,
     ) !void {
+        const today = getToday(self.io);
+        const calls = self.db.getLlmCallCount(
+            &today,
+        ) catch 0;
+        if (calls >= 50) {
+            try self.sendMessage(
+                chat_id,
+                self.s(.rate_limited),
+            );
+            return;
+        }
+
+        self.db.incrementLlmCalls(&today) catch {};
+
         const file_id_val = voice.object.get("file_id") orelse
             return;
         const file_id = file_id_val.string;
