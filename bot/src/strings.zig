@@ -78,6 +78,7 @@ pub const Key = enum {
 
     // meal
     meal_summary,
+    meal_date_note,
     gout_warning_line,
     meal_saved_fallback,
 
@@ -326,6 +327,8 @@ fn enStr(key: Key) []const u8 {
                 ++ " confidence: {s}\n"
                 ++ "Water: {d}ml\n"
                 ++ "{s}{s}",
+        .meal_date_note =>
+            "\xF0\x9F\x93\x85 Logged for {s}\n",
         .gout_warning_line =>
             "\xE2\x9A\xA0\xEF\xB8\x8F GOUT WARNING\n",
         .meal_saved_fallback => "Meal saved.",
@@ -681,6 +684,8 @@ fn plStr(key: Key) []const u8 {
                 ++ " pewno\xC5\x9B\xC4\x87: {s}\n"
                 ++ "Woda: {d}ml\n"
                 ++ "{s}{s}",
+        .meal_date_note =>
+            "\xF0\x9F\x93\x85 Zapisano na {s}\n",
         .gout_warning_line =>
             "\xE2\x9A\xA0\xEF\xB8\x8F"
                 ++ " OSTRZEZENIE DNAWE\n",

@@ -537,11 +537,14 @@ pub const Bot = struct {
         chat_id: i64,
         text: []const u8,
     ) !void {
+        const dp = parseDatePrefix(text);
+        const meal_text = dp.rest;
+
         var result = llm.analyze(
             self.allocator,
             self.io,
             self.gemini_key,
-            text,
+            meal_text,
             self.locale.llmName(),
         ) catch {
             try self.sendMessage(
@@ -552,11 +555,15 @@ pub const Bot = struct {
         };
         defer result.deinit(self.allocator);
 
-        const today = getToday(self.io);
+        var today_buf = getToday(self.io);
+        const date: []const u8 = if (dp.date) |d|
+            d
+        else
+            &today_buf;
         const r = result.parsed;
 
         const meal = database.Meal{
-            .meal_date = &today,
+            .meal_date = date,
             .raw_text = text,
             .meal_name = r.meal_name,
             .calories = r.calories,
@@ -582,10 +589,24 @@ pub const Bot = struct {
             return;
         };
 
-        self.checkPostMealAlerts(&today, r.calories, r.fat_g);
+        if (dp.date == null) {
+            self.checkPostMealAlerts(
+                date, r.calories, r.fat_g,
+            );
+        }
 
         const notes_str = if (r.purine_notes.len > 0)
             r.purine_notes
+        else
+            "";
+
+        var date_note_buf: [48]u8 = undefined;
+        const date_note: []const u8 = if (dp.date != null)
+            self.fmt(
+                &date_note_buf,
+                .meal_date_note,
+                .{date},
+            ) orelse ""
         else
             "";
 
@@ -613,7 +634,17 @@ pub const Bot = struct {
             },
         ) orelse self.s(.meal_saved_fallback);
 
-        try self.sendMessage(chat_id, msg);
+        if (date_note.len > 0) {
+            var full_buf: [1100]u8 = undefined;
+            const full = std.fmt.bufPrint(
+                &full_buf,
+                "{s}{s}",
+                .{ date_note, msg },
+            ) catch msg;
+            try self.sendMessage(chat_id, full);
+        } else {
+            try self.sendMessage(chat_id, msg);
+        }
     }
 
     fn execWeight(
@@ -1666,4 +1697,34 @@ fn parseInjectionText(
         result.has_notes = true;
     }
     return result;
+}
+
+const DatePrefix = struct {
+    date: ?[]const u8,
+    rest: []const u8,
+};
+
+fn parseDatePrefix(text: []const u8) DatePrefix {
+    // Match YYYY-MM-DD at start (exactly 10 chars)
+    if (text.len < 10) return .{ .date = null, .rest = text };
+
+    const candidate = text[0..10];
+    if (candidate[4] != '-' or candidate[7] != '-')
+        return .{ .date = null, .rest = text };
+
+    for (candidate, 0..) |c, i| {
+        if (i == 4 or i == 7) continue;
+        if (c < '0' or c > '9')
+            return .{ .date = null, .rest = text };
+    }
+
+    const rest = if (text.len > 10)
+        std.mem.trimStart(u8, text[10..], " ")
+    else
+        "";
+
+    if (rest.len == 0)
+        return .{ .date = null, .rest = text };
+
+    return .{ .date = candidate, .rest = rest };
 }
