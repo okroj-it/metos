@@ -10,6 +10,13 @@ pub const Locale = enum {
             .pl => "Polish",
         };
     }
+
+    pub fn llmCode(self: Locale) []const u8 {
+        return switch (self) {
+            .en => "en",
+            .pl => "pl",
+        };
+    }
 };
 
 pub const Key = enum {
@@ -76,8 +83,21 @@ pub const Key = enum {
     cmd_start,
     cmd_help,
 
+    // menu descriptions
+    menu_start,
+    menu_help,
+    menu_weight,
+    menu_water,
+    menu_stats,
+    menu_meals,
+    menu_history,
+    menu_goal,
+    menu_injection,
+    menu_undo,
+
     // meal
     meal_summary,
+    meal_date_note,
     gout_warning_line,
     meal_saved_fallback,
 
@@ -315,6 +335,18 @@ fn enStr(key: Key) []const u8 {
                 ++ "\xCE\xB8\xCE\xBF\xCE\xB4"
                 ++ "\xCE\xBF\xCE\xBD",
 
+        // --- menu descriptions ---
+        .menu_start => "Start MetOS",
+        .menu_help => "Show commands",
+        .menu_weight => "Log weight",
+        .menu_water => "Log water intake",
+        .menu_stats => "Daily summary",
+        .menu_meals => "List meals",
+        .menu_history => "Weight history",
+        .menu_goal => "Set calorie/protein goal",
+        .menu_injection => "Log Mounjaro injection",
+        .menu_undo => "Delete last meal",
+
         // --- meal ---
         .meal_summary =>
             "\xE2\x9C\x85 {s}\n"
@@ -326,6 +358,8 @@ fn enStr(key: Key) []const u8 {
                 ++ " confidence: {s}\n"
                 ++ "Water: {d}ml\n"
                 ++ "{s}{s}",
+        .meal_date_note =>
+            "\xF0\x9F\x93\x85 Logged for {s}\n",
         .gout_warning_line =>
             "\xE2\x9A\xA0\xEF\xB8\x8F GOUT WARNING\n",
         .meal_saved_fallback => "Meal saved.",
@@ -669,6 +703,25 @@ fn plStr(key: Key) []const u8 {
                 ++ "\xCE\xB8\xCE\xBF\xCE\xB4"
                 ++ "\xCE\xBF\xCE\xBD",
 
+        // --- menu descriptions ---
+        .menu_start => "Uruchom MetOS",
+        .menu_help => "Poka\xC5\xBC komendy",
+        .menu_weight => "Zapisz wag\xC4\x99",
+        .menu_water =>
+            "Zapisz wod\xC4\x99",
+        .menu_stats =>
+            "Podsumowanie dnia",
+        .menu_meals =>
+            "Lista posi\xC5\x82k\xC3\xB3w",
+        .menu_history =>
+            "Historia wagi",
+        .menu_goal =>
+            "Ustaw cel kcal/bia\xC5\x82ko",
+        .menu_injection =>
+            "Zapisz zastrzyk Mounjaro",
+        .menu_undo =>
+            "Usu\xC5\x84 ostatni posi\xC5\x82ek",
+
         // --- meal ---
         .meal_summary =>
             "\xE2\x9C\x85 {s}\n"
@@ -681,6 +734,8 @@ fn plStr(key: Key) []const u8 {
                 ++ " pewno\xC5\x9B\xC4\x87: {s}\n"
                 ++ "Woda: {d}ml\n"
                 ++ "{s}{s}",
+        .meal_date_note =>
+            "\xF0\x9F\x93\x85 Zapisano na {s}\n",
         .gout_warning_line =>
             "\xE2\x9A\xA0\xEF\xB8\x8F"
                 ++ " OSTRZEZENIE DNAWE\n",
