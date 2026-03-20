@@ -283,8 +283,11 @@ pub const Bot = struct {
             return;
         }
 
+        const dp = parseDatePrefix(trimmed);
+        const arg = if (dp.date != null) dp.rest else trimmed;
+
         var weight_end: usize = 0;
-        for (trimmed, 0..) |c, i| {
+        for (arg, 0..) |c, i| {
             if ((c >= '0' and c <= '9') or c == '.') {
                 weight_end = i + 1;
             } else break;
@@ -299,7 +302,7 @@ pub const Bot = struct {
 
         const weight = std.fmt.parseFloat(
             f64,
-            trimmed[0..weight_end],
+            arg[0..weight_end],
         ) catch {
             try self.sendMessage(
                 chat_id,
@@ -310,7 +313,7 @@ pub const Bot = struct {
 
         const rest = std.mem.trimStart(
             u8,
-            trimmed[weight_end..],
+            arg[weight_end..],
             " ",
         );
 
@@ -659,9 +662,11 @@ pub const Bot = struct {
     ) !void {
         const after_cmd = text[7..];
         const trimmed = std.mem.trimStart(u8, after_cmd, " ");
+        const dp = parseDatePrefix(trimmed);
+        const arg = if (dp.date != null) dp.rest else trimmed;
 
         var weight_end: usize = 0;
-        for (trimmed, 0..) |c, i| {
+        for (arg, 0..) |c, i| {
             if ((c >= '0' and c <= '9') or c == '.') {
                 weight_end = i + 1;
             } else break;
@@ -669,7 +674,7 @@ pub const Bot = struct {
 
         const weight = std.fmt.parseFloat(
             f64,
-            trimmed[0..weight_end],
+            arg[0..weight_end],
         ) catch {
             try self.sendMessage(
                 chat_id,
@@ -680,16 +685,21 @@ pub const Bot = struct {
 
         const rest = std.mem.trimStart(
             u8,
-            trimmed[weight_end..],
+            arg[weight_end..],
             " ",
         );
         const notes: ?[]const u8 = if (rest.len > 0)
             rest
         else
             null;
-        const today = getToday(self.io);
 
-        self.db.insertWeighIn(&today, weight, notes) catch {
+        var today_buf = getToday(self.io);
+        const date: []const u8 = if (dp.date) |d|
+            d
+        else
+            &today_buf;
+
+        self.db.insertWeighIn(date, weight, notes) catch {
             try self.sendMessage(
                 chat_id,
                 self.s(.err_weight_save_failed),
