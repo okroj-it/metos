@@ -154,7 +154,7 @@ pub fn analyze(
     defer allocator.free(body);
 
     const response_body = try callGemini(
-        allocator, io, api_key, "gemini-3.1-flash-lite-preview", body,
+        allocator, io, api_key, "gemini-3.1-flash-lite", body,
     );
     defer allocator.free(response_body);
 
@@ -180,7 +180,7 @@ pub fn transcribe(
 
     const response_body = try callGemini(
         allocator, io, api_key,
-        "gemini-3.1-flash-lite-preview", body,
+        "gemini-3.1-flash-lite", body,
     );
     defer allocator.free(response_body);
 
