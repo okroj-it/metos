@@ -1,11 +1,12 @@
 FROM alpine:3.21 AS build
 
-RUN apk add --no-cache curl xz jq
+# Pinned to match minimum_zig_version in build.zig.zon. Bump together.
+# ziglang.org prunes old dev builds; if 404, re-pin to a current master version.
+ARG ZIG_VERSION=0.17.0-dev.340+c02d39a21
+RUN apk add --no-cache curl xz
 RUN ARCH=$(uname -m) && \
-    case "$ARCH" in aarch64) ZIG_ARCH="aarch64-linux" ;; *) ZIG_ARCH="x86_64-linux" ;; esac && \
-    ZIG_URL=$(curl -fsSL https://ziglang.org/download/index.json \
-    | jq -r ".master[\"${ZIG_ARCH}\"].tarball") && \
-    curl -fsSL "$ZIG_URL" | tar -xJ -C /opt --strip-components=1
+    curl -fsSL "https://ziglang.org/builds/zig-${ARCH}-linux-${ZIG_VERSION}.tar.xz" \
+    | tar -xJ -C /opt --strip-components=1
 ENV PATH="/opt:${PATH}"
 
 WORKDIR /app

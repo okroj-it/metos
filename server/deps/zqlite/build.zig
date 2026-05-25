@@ -9,11 +9,20 @@ pub fn build(b: *std.Build) !void {
 
     const lib_path = b.path("lib");
 
+    const sqlitec_translate = b.addTranslateC(.{
+        .root_source_file = b.path("lib/sqlite3.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const sqlitec_mod = sqlitec_translate.createModule();
+
     const mod_zqlite = b.addModule("zqlite", .{
         .root_source_file = b.path("src/zqlite.zig"),
         .target = target,
         .optimize = optimize,
     });
+    mod_zqlite.addImport("sqlitec", sqlitec_mod);
 
     const mod_sqlite = b.createModule(.{
         .target = target,

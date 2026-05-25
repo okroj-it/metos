@@ -1382,7 +1382,7 @@ pub const Bot = struct {
         };
         defer self.allocator.free(audio);
 
-        var result = llm.transcribe(
+        const result = llm.transcribe(
             self.allocator,
             self.io,
             self.gemini_key,

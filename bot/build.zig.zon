@@ -2,7 +2,7 @@
     .name = .grubango_bot,
     .version = "0.0.0",
     .fingerprint = 0x47cfc5300e062fb5,
-    .minimum_zig_version = "0.16.0-dev.2676+4e2cec265",
+    .minimum_zig_version = "0.17.0-dev.340+c02d39a21",
     .dependencies = .{
         .zqlite = .{
             .path = "deps/zqlite",

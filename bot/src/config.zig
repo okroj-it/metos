@@ -76,7 +76,7 @@ pub fn load(
         else
             null,
         .db_path = if (db_path) |p|
-            try allocator.dupeZ(u8, p)
+            try allocator.dupeSentinel(u8, p, 0)
         else
             "metos.db",
         .owner_id = if (owner_id_str) |oid|

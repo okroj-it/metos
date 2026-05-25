@@ -55,7 +55,7 @@ pub fn load(
 
     return Config{
         .db_path = if (db_path) |p|
-            try allocator.dupeZ(u8, p)
+            try allocator.dupeSentinel(u8, p, 0)
         else
             "metos.db",
         .port = if (port_str) |p|
