@@ -524,6 +524,7 @@ fn extractTranscript(
 
     const candidates = parsed.value.object.get("candidates") orelse
         return error.InvalidLlmResponse;
+    if (candidates.array.items.len == 0) return error.InvalidLlmResponse;
     const first = candidates.array.items[0];
     const content = first.object.get("content") orelse
         return error.InvalidLlmResponse;
@@ -535,6 +536,11 @@ fn extractTranscript(
     return .{
         .transcript = try allocator.dupe(u8, text),
     };
+}
+
+/// Truncate a response body for log output to keep lines bounded.
+fn trunc(body: []const u8) []const u8 {
+    return body[0..@min(body.len, 1000)];
 }
 
 fn extractAndParse(
@@ -549,12 +555,28 @@ fn extractAndParse(
     );
     defer parsed.deinit();
 
-    const candidates = parsed.value.object.get("candidates") orelse
+    const candidates = parsed.value.object.get("candidates") orelse {
+        std.log.err("llm: no candidates: {s}", .{trunc(gemini_body)});
         return error.InvalidLlmResponse;
+    };
+    if (candidates.array.items.len == 0) {
+        std.log.err("llm: empty candidates: {s}", .{trunc(gemini_body)});
+        return error.InvalidLlmResponse;
+    }
     const first = candidates.array.items[0];
-    const parts = first.object.get("content").?.object.get("parts").?;
-    const text = findAnswerPart(parts.array.items) orelse
+    const content = first.object.get("content") orelse {
+        const reason = if (first.object.get("finishReason")) |r| r.string else "unknown";
+        std.log.err("llm: no content (finishReason={s}): {s}", .{ reason, trunc(gemini_body) });
         return error.InvalidLlmResponse;
+    };
+    const parts = content.object.get("parts") orelse {
+        std.log.err("llm: no parts: {s}", .{trunc(gemini_body)});
+        return error.InvalidLlmResponse;
+    };
+    const text = findAnswerPart(parts.array.items) orelse {
+        std.log.err("llm: no answer part: {s}", .{trunc(gemini_body)});
+        return error.InvalidLlmResponse;
+    };
 
     const meal_json = try allocator.dupe(u8, text);
     errdefer allocator.free(meal_json);
