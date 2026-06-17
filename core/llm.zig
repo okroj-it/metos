@@ -543,16 +543,29 @@ fn trunc(body: []const u8) []const u8 {
     return body[0..@min(body.len, 1000)];
 }
 
+/// Slice the JSON object out of model output, tolerating markdown code
+/// fences or stray text the model wraps around it. Returns the span from
+/// the first '{' to the last '}'; falls back to the input if absent.
+fn extractJsonObject(text: []const u8) []const u8 {
+    const start = std.mem.indexOfScalar(u8, text, '{') orelse return text;
+    const end = std.mem.lastIndexOfScalar(u8, text, '}') orelse return text;
+    if (end < start) return text;
+    return text[start .. end + 1];
+}
+
 fn extractAndParse(
     allocator: std.mem.Allocator,
     gemini_body: []const u8,
 ) !AnalysisResult {
-    const parsed = try std.json.parseFromSlice(
+    const parsed = std.json.parseFromSlice(
         std.json.Value,
         allocator,
         gemini_body,
         .{},
-    );
+    ) catch |err| {
+        std.log.err("llm: response not valid JSON ({s}): {s}", .{ @errorName(err), trunc(gemini_body) });
+        return err;
+    };
     defer parsed.deinit();
 
     const candidates = parsed.value.object.get("candidates") orelse {
@@ -578,15 +591,18 @@ fn extractAndParse(
         return error.InvalidLlmResponse;
     };
 
-    const meal_json = try allocator.dupe(u8, text);
+    const meal_json = try allocator.dupe(u8, extractJsonObject(text));
     errdefer allocator.free(meal_json);
 
-    const meal_parsed = try std.json.parseFromSlice(
+    const meal_parsed = std.json.parseFromSlice(
         LlmResponse,
         allocator,
         meal_json,
         .{ .ignore_unknown_fields = true },
-    );
+    ) catch |err| {
+        std.log.err("llm: meal text not valid JSON ({s}): {s}", .{ @errorName(err), trunc(meal_json) });
+        return err;
+    };
     defer meal_parsed.deinit();
 
     return .{
