@@ -344,7 +344,10 @@ fn uploadFile(
     return try allocator.dupe(u8, uri_val.string);
 }
 
-fn callGemini(
+/// POST a request body to the Gemini generateContent endpoint and return
+/// the raw response body. Generic transport reused by analyze, transcribe,
+/// and cloud-side vision callers.
+pub fn callGemini(
     allocator: std.mem.Allocator,
     io: Io,
     api_key: []const u8,
@@ -514,27 +517,8 @@ fn extractTranscript(
         gemini_body.len,
         gemini_body[0..@min(gemini_body.len, 500)],
     });
-    const parsed = try std.json.parseFromSlice(
-        std.json.Value,
-        allocator,
-        gemini_body,
-        .{},
-    );
-    defer parsed.deinit();
-
-    const candidates = parsed.value.object.get("candidates") orelse
-        return error.InvalidLlmResponse;
-    if (candidates.array.items.len == 0) return error.InvalidLlmResponse;
-    const first = candidates.array.items[0];
-    const content = first.object.get("content") orelse
-        return error.InvalidLlmResponse;
-    const parts = content.object.get("parts") orelse
-        return error.InvalidLlmResponse;
-    const text = findAnswerPart(parts.array.items) orelse
-        return error.InvalidLlmResponse;
-
     return .{
-        .transcript = try allocator.dupe(u8, text),
+        .transcript = try extractAnswerText(allocator, gemini_body),
     };
 }
 
@@ -546,17 +530,21 @@ fn trunc(body: []const u8) []const u8 {
 /// Slice the JSON object out of model output, tolerating markdown code
 /// fences or stray text the model wraps around it. Returns the span from
 /// the first '{' to the last '}'; falls back to the input if absent.
-fn extractJsonObject(text: []const u8) []const u8 {
+pub fn extractJsonObject(text: []const u8) []const u8 {
     const start = std.mem.indexOfScalar(u8, text, '{') orelse return text;
     const end = std.mem.lastIndexOfScalar(u8, text, '}') orelse return text;
     if (end < start) return text;
     return text[start .. end + 1];
 }
 
-fn extractAndParse(
+/// Walk the Gemini response envelope and return the model's answer text
+/// (the last non-thought text part), duped for the caller to own. Logs the
+/// finishReason and a truncated body when the expected shape is missing.
+/// Generic helper shared by analyze, transcribe, and cloud-side vision.
+pub fn extractAnswerText(
     allocator: std.mem.Allocator,
     gemini_body: []const u8,
-) !AnalysisResult {
+) ![]const u8 {
     const parsed = std.json.parseFromSlice(
         std.json.Value,
         allocator,
@@ -590,8 +578,17 @@ fn extractAndParse(
         std.log.err("llm: no answer part: {s}", .{trunc(gemini_body)});
         return error.InvalidLlmResponse;
     };
+    return allocator.dupe(u8, text);
+}
 
-    const meal_json = try allocator.dupe(u8, extractJsonObject(text));
+fn extractAndParse(
+    allocator: std.mem.Allocator,
+    gemini_body: []const u8,
+) !AnalysisResult {
+    const answer = try extractAnswerText(allocator, gemini_body);
+    defer allocator.free(answer);
+
+    const meal_json = try allocator.dupe(u8, extractJsonObject(answer));
     errdefer allocator.free(meal_json);
 
     const meal_parsed = std.json.parseFromSlice(
