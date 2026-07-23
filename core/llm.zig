@@ -57,12 +57,20 @@ const system_prompt =
     \\1. Portion estimation: If the user does not specify exact weight,
     \\   assume standard large portions (e.g. "cottage cheese" = 250g,
     \\   "chicken breast" = 200g, "roll/slice" = one piece).
-    \\2. Macronutrients: Estimate calories (kcal), protein (g),
+    \\2. Weight basis: an explicit weight for meat, fish, or poultry
+    \\   is the RAW (uncooked) weight unless the user says it was
+    \\   weighed after cooking — people weigh food before cooking it,
+    \\   even when they mention the cooking method. Use raw-basis
+    \\   nutrition values (raw chicken breast ≈ 110 kcal and 23g
+    \\   protein per 100g; cooked-basis ≈ 165 kcal and 31g would
+    \\   overcount). Likewise rice, pasta, and legumes: stated grams
+    \\   are dry weight unless stated otherwise.
+    \\3. Macronutrients: Estimate calories (kcal), protein (g),
     \\   carbohydrates (g), fat (g), and fiber (g).
-    \\3. Protein density: Calculate "protein_density".
+    \\4. Protein density: Calculate "protein_density".
     \\   Formula: (protein_g * 4) / calories. Return as a decimal
     \\   rounded to two places (e.g. 0.45).
-    \\4. Purine analysis (critical for gout safety):
+    \\5. Purine analysis (critical for gout safety):
     \\   - "low": meals based on dairy (cottage cheese, WPI), eggs,
     \\     vegetables (broccoli, cauliflower), and bread.
     \\   - "medium": meals containing lean meat (poultry) or lean
@@ -70,19 +78,19 @@ const system_prompt =
     \\   - "high": meals containing meat broths (e.g. bone broth,
     \\     cooking stock), beef, pork, organ meats, alcohol,
     \\     or high sugar/fructose.
-    \\5. Safety flag: "gout_warning" must be true whenever any
+    \\6. Safety flag: "gout_warning" must be true whenever any
     \\   ingredient has "high" purine level.
-    \\6. Purine mg: Estimate total purine content in mg.
-    \\7. Purine confidence: "purine_confidence" — how confident
+    \\7. Purine mg: Estimate total purine content in mg.
+    \\8. Purine confidence: "purine_confidence" — how confident
     \\   is your purine estimate:
     \\   - "high": common foods with well-known purine content
     \\   - "medium": approximate values, may vary
     \\   - "low": foods with variable purine content depending on
     \\     preparation, species, or source
-    \\8. Purine notes: "purine_notes" — a short note when confidence
+    \\9. Purine notes: "purine_notes" — a short note when confidence
     \\   is low or medium (e.g. "sardines — high variability depending
     \\   on preparation"). Empty string when confidence is high.
-    \\9. Water ml: Suggested hydration. Base 250ml, +500ml for high
+    \\10. Water ml: Suggested hydration. Base 250ml, +500ml for high
     \\   purines, +250ml for medium.
     \\
     \\REQUIRED JSON STRUCTURE (for meals):
@@ -119,12 +127,20 @@ const system_prompt_basic =
     \\1. Portion estimation: If the user does not specify exact weight,
     \\   assume standard large portions (e.g. "cottage cheese" = 250g,
     \\   "chicken breast" = 200g, "roll/slice" = one piece).
-    \\2. Macronutrients: Estimate calories (kcal), protein (g),
+    \\2. Weight basis: an explicit weight for meat, fish, or poultry
+    \\   is the RAW (uncooked) weight unless the user says it was
+    \\   weighed after cooking — people weigh food before cooking it,
+    \\   even when they mention the cooking method. Use raw-basis
+    \\   nutrition values (raw chicken breast ≈ 110 kcal and 23g
+    \\   protein per 100g; cooked-basis ≈ 165 kcal and 31g would
+    \\   overcount). Likewise rice, pasta, and legumes: stated grams
+    \\   are dry weight unless stated otherwise.
+    \\3. Macronutrients: Estimate calories (kcal), protein (g),
     \\   carbohydrates (g), fat (g), and fiber (g).
-    \\3. Protein density: Calculate "protein_density".
+    \\4. Protein density: Calculate "protein_density".
     \\   Formula: (protein_g * 4) / calories. Return as a decimal
     \\   rounded to two places (e.g. 0.45).
-    \\4. Water ml: Suggested hydration. Base 250ml.
+    \\5. Water ml: Suggested hydration. Base 250ml.
     \\
     \\REQUIRED JSON STRUCTURE (for meals):
     \\{
